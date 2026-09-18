@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 const root = await realpath(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
 const publicFiles = new Set([
   'index.html', 'style.css', 'manifest.webmanifest', 'sw.js',
-  'src/main.js', 'src/game.js', 'src/render.js', 'src/audio.js', 'src/pwa.js',
+  'src/main.js', 'src/game.js', 'src/render.js', 'src/audio.js', 'src/kvlt-music.js', 'src/pwa.js',
   'assets/icon.svg', 'assets/icon-192.png', 'assets/icon-512.png',
+  'assets/audio/frozen-minor.mp3', 'assets/audio/summer-platformer.mp3',
+  'assets/audio/kalm-mjork.mp3',
 ]);
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -16,6 +18,7 @@ const mimeTypes = {
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.mp3': 'audio/mpeg',
 };
 
 let host = '127.0.0.1';
@@ -73,6 +76,26 @@ const server = createServer(async (request, response) => {
       return;
     }
     const content = await readFile(actualPath);
+    if (extname(filename) === '.mp3') response.setHeader('Accept-Ranges', 'bytes');
+    if (extname(filename) === '.mp3' && request.headers.range) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range);
+      const size = content.length;
+      const start = match?.[1] ? Number(match[1]) : match?.[2] ? Math.max(0, size - Number(match[2])) : NaN;
+      const end = match?.[1] && match[2] ? Math.min(size - 1, Number(match[2])) : size - 1;
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || start > end || start >= size) {
+        response.setHeader('Content-Range', `bytes */${size}`);
+        finish(416, 'Virheellinen tavuväli.');
+        return;
+      }
+      const part = content.subarray(start, end + 1);
+      response.writeHead(206, {
+        'Content-Type': 'audio/mpeg',
+        'Content-Length': part.length,
+        'Content-Range': `bytes ${start}-${end}/${size}`,
+      });
+      response.end(request.method === 'HEAD' ? undefined : part);
+      return;
+    }
     response.writeHead(200, {
       'Content-Type': mimeTypes[extname(filename)],
       'Content-Length': content.length,

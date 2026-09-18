@@ -9,6 +9,12 @@ const palettes = {
     grass: '#497b5b', grassLight: '#a0cf76', grassTop: '#d4e89a', dirt: '#97745e',
     dirtLight: '#b59270', dirtDark: '#6d5b50', flower: '#f4b19c', outline: '#4b4750',
   },
+  autumn: {
+    sky: '#eee9dd', skyBottom: '#d8c8aa', cloud: '#fbf3e3', cloudShade: '#d9cdbb',
+    distant: '#c1b198', hill: '#b39a77', nearHill: '#927e5c', detail: '#f0cf88',
+    grass: '#9b693d', grassLight: '#dca44f', grassTop: '#f3d189', dirt: '#8e6850',
+    dirtLight: '#b88c61', dirtDark: '#674f43', flower: '#bc6546', outline: '#5e4945',
+  },
   kvlt: {
     sky: '#252a43', skyBottom: '#666078', cloud: '#777089', cloudShade: '#5b546f',
     distant: '#464359', hill: '#3c3e50', nearHill: '#333849', detail: '#b0a8cc',
@@ -22,6 +28,8 @@ const palettes = {
     dirtLight: '#628196', dirtDark: '#172c3e', flower: '#e8f3f8', outline: '#091322',
   },
 };
+
+const isDarkTheme = (theme) => theme === 'kvlt' || theme === 'winter';
 
 function box(ctx, color, x, y, width, height) {
   ctx.fillStyle = color;
@@ -114,6 +122,33 @@ function winterPine(ctx, x, bottom, height, color, snowy = false) {
   }
 }
 
+function autumnLeaf(ctx, x, y, color, turn = 1) {
+  const width = 2 + Math.round(Math.abs(turn) * 4);
+  box(ctx, color, x - width / 2, y - 2, width, 4);
+  box(ctx, color, x - width / 2 + 1, y - 3, Math.max(1, width - 2), 6);
+  box(ctx, '#856047', x + 1, y + 2, 1, 2);
+}
+
+function autumnTree(ctx, x, bottom, height, colors) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(bottom));
+  ctx.scale(height / 100, height / 100);
+  box(ctx, colors.trunk, -4, -72, 8, 72);
+  box(ctx, colors.trunk, -14, -48, 11, 5);
+  box(ctx, colors.trunk, -18, -58, 5, 14);
+  box(ctx, colors.trunk, 3, -59, 12, 5);
+  box(ctx, colors.trunk, 12, -69, 5, 13);
+  pixelOval(ctx, colors.shade, -34, -86, 69, 47, 5);
+  pixelOval(ctx, colors.leaf, -28, -96, 40, 44, 4);
+  pixelOval(ctx, colors.leaf, 0, -87, 37, 38, 4);
+  pixelOval(ctx, colors.leaf, -40, -73, 35, 29, 4);
+  pixelOval(ctx, colors.light, -17, -94, 27, 15, 3);
+  for (const [dx, dy, width] of [[-30, -65, 8], [-15, -75, 7], [16, -78, 9], [7, -61, 6], [-4, -49, 6]]) {
+    box(ctx, colors.light, dx, dy, width, 3);
+  }
+  ctx.restore();
+}
+
 function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
   const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
   gradient.addColorStop(0, palette.sky);
@@ -123,7 +158,7 @@ function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
   const drift = reducedMotion ? 0 : time;
   const camera = game.camera || 0;
 
-  if (theme !== 'meadow') {
+  if (isDarkTheme(theme)) {
     const winter = theme === 'winter';
     for (let i = 0; i < 36; i += 1) {
       const x = (i * 83 + 29) % WIDTH;
@@ -166,11 +201,24 @@ function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
     shape(ctx, '#7b93a6', [[173, 329 + offset], [173, 313 + offset], [185, 313 + offset], [185, 285 + offset], [200, 285 + offset], [200, 304 + offset], [213, 304 + offset], [213, 324 + offset], [225, 324 + offset], [225, 340 + offset], [210, 340 + offset], [210, 333 + offset], [198, 333 + offset], [198, 320 + offset], [187, 320 + offset], [187, 335 + offset]]);
   }
   if (theme === 'kvlt') castle(ctx, 231, 373 + offset, 0.8);
+  if (theme === 'autumn') {
+    const distantLeaves = { trunk: '#a08c70', shade: '#ad9270', leaf: '#bea17a', light: '#c8af88' };
+    for (const [x, bottom, height] of [[16, 474, 108], [110, 468, 88], [246, 465, 101], [351, 474, 110]]) {
+      autumnTree(ctx, x, bottom + offset * 1.2, height, distantLeaves);
+    }
+  }
   ridge(ctx, palette.hill, [[-20, 473], [39, 421], [104, 438], [155, 487], [224, 405], [295, 445], [380, 420]], offset * 1.4);
   if (theme === 'winter') {
     for (const [x, bottom, height] of [[17, 531, 112], [66, 520, 65], [101, 546, 92], [236, 540, 72], [288, 522, 121], [343, 532, 85]]) {
       winterPine(ctx, x, bottom + offset * 1.6, height, '#172c40', true);
     }
+  }
+  if (theme === 'autumn') {
+    const goldLeaves = { trunk: '#7a624a', shade: '#ad764c', leaf: '#c8944f', light: '#dfb265' };
+    const rustLeaves = { trunk: '#705847', shade: '#915e4b', leaf: '#b87550', light: '#ce9760' };
+    autumnTree(ctx, 24, 544 + offset * 1.6, 122, goldLeaves);
+    autumnTree(ctx, 280, 552 + offset * 1.6, 140, rustLeaves);
+    autumnTree(ctx, 348, 534 + offset * 1.6, 94, goldLeaves);
   }
   ridge(ctx, palette.nearHill, [[-20, 559], [71, 489], [127, 506], [190, 569], [275, 505], [380, 491]], offset * 1.8);
 
@@ -181,17 +229,30 @@ function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
     ctx.globalAlpha = 0.35;
     if (theme === 'winter') {
       box(ctx, '#65859b', x, y, 4 + i % 4, 1);
+    } else if (theme === 'autumn') {
+      box(ctx, i % 2 ? '#b7844d' : '#c69b58', x, y, 4 + i % 4, 2);
+      box(ctx, '#745b42', x + 2, y + 2, 2, 1);
     } else {
       box(ctx, palette.grass, x, y, 2, 7);
       box(ctx, palette.grass, x - 2, y + 2, 6, 2);
       if (i % 3 === 0) box(ctx, palette.detail, x, y - 2, 2, 2);
     }
   }
-  for (let i = 0; i < (theme === 'winter' ? 32 : 14); i += 1) {
-    const x = (i * 79 + 33 + Math.sin(drift / 3 + i) * 5) % WIDTH;
-    const y = (i * 113 + 90 + (theme === 'winter' ? drift * (7 + i % 5) : Math.sin(drift / 5 + i) * 8)) % 640;
-    ctx.globalAlpha = 0.18 + (Math.sin(drift + i) + 1) * 0.1;
-    box(ctx, palette.detail, x, y, 2, 2);
+  if (theme === 'autumn') {
+    const leafColors = ['#c89843', '#b96a49', '#d5ae62'];
+    for (let i = 0; i < 20; i += 1) {
+      const x = (i * 79 + 33 + Math.sin(drift * 0.6 + i * 2) * 14) % WIDTH;
+      const y = (i * 97 + 80 + drift * (9 + i % 5)) % (HEIGHT + 30) - 15;
+      ctx.globalAlpha = 0.36 + (i % 3) * 0.11;
+      autumnLeaf(ctx, x, y, leafColors[i % leafColors.length], Math.sin(drift * 2 + i));
+    }
+  } else {
+    for (let i = 0; i < (theme === 'winter' ? 32 : 14); i += 1) {
+      const x = (i * 79 + 33 + Math.sin(drift / 3 + i) * 5) % WIDTH;
+      const y = (i * 113 + 90 + (theme === 'winter' ? drift * (7 + i % 5) : Math.sin(drift / 5 + i) * 8)) % 640;
+      ctx.globalAlpha = 0.18 + (Math.sin(drift + i) + 1) * 0.1;
+      box(ctx, palette.detail, x, y, 2, 2);
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -211,12 +272,12 @@ function drawPlatform(ctx, platform, screenY, palette, theme) {
   for (let j = 0; j < width - 14; j += 17) {
     const depth = ((j + seed * 3) % 11) + 10;
     box(ctx, palette.dirtLight, x + 8 + j, y + depth, 5, 3);
-    if (theme === 'meadow' && j % 2 === 0) box(ctx, palette.dirtDark, x + 10 + j, y + 21, 2, 4);
+    if (!isDarkTheme(theme) && j % 2 === 0) box(ctx, palette.dirtDark, x + 10 + j, y + 21, 2, 4);
   }
   box(ctx, palette.grass, x, y + 2, width, 7);
   box(ctx, palette.grassLight, x, y, width, 5);
   box(ctx, palette.grassTop, x + 3, y, width - 6, 2);
-  if (theme !== 'meadow') {
+  if (isDarkTheme(theme)) {
     for (let j = 18; j < width - 5; j += 24) {
       box(ctx, palette.dirtDark, x + j, y + 10, 2, 9);
       box(ctx, palette.dirtDark, x + j - 3, y + 17, 5, 2);
@@ -231,6 +292,14 @@ function drawPlatform(ctx, platform, screenY, palette, theme) {
     } else {
       box(ctx, '#777487', x + 6, y - 2, 8, 2);
       box(ctx, '#777487', x + width - 17, y - 3, 9, 3);
+    }
+  } else if (theme === 'autumn') {
+    const leaves = ['#efc56a', '#b9653d', '#d68b42', '#dcac54'];
+    for (let j = 5; j < width - 5; j += 11) {
+      const leafY = y - 1 - ((j + seed) % 3);
+      box(ctx, leaves[(Math.floor(j / 11) + seed) % leaves.length], x + j, leafY, 7, 3);
+      box(ctx, palette.dirtDark, x + j + 4, leafY + 2, 2, 1);
+      if (j % 3 === 0) box(ctx, '#bf7c3e', x + j + 2, y + 6, 4, 4);
     }
   } else {
     for (let j = 7; j < width - 3; j += 13) {
@@ -253,7 +322,7 @@ function drawSatsuma(ctx, x, y, time, theme, reducedMotion) {
   const float = reducedMotion ? 0 : Math.sin(time * 3 + x) * 1.4;
   y += float;
   ctx.globalAlpha = 0.14;
-  pixelOval(ctx, theme !== 'meadow' ? '#ffb45e' : '#fffbcd', x - 23, y - 37, 46, 43, 6);
+  pixelOval(ctx, isDarkTheme(theme) ? '#ffb45e' : '#fffbcd', x - 23, y - 37, 46, 43, 6);
   ctx.globalAlpha = 1;
   pixelOval(ctx, '#9b6243', x - 15, y - 27, 30, 27, 3);
   pixelOval(ctx, '#ee8b42', x - 15, y - 29, 30, 25, 3);
@@ -310,15 +379,17 @@ function drawPoop(ctx, x, y, theme, used) {
     const paint = theme === 'winter' ? '#e4f0f4' : '#f4eee8';
     const black = theme === 'winter' ? '#142638' : '#342e3f';
     pixelOval(ctx, paint, x - 10, y - 13, 21, 12, 2);
-    box(ctx, black, x - 7, y - 11, 5, 5);
-    box(ctx, black, x + 3, y - 11, 5, 5);
-    box(ctx, black, x - 7, y - 14, 2, 4);
-    box(ctx, black, x + 6, y - 14, 2, 4);
-    box(ctx, black, x - 5, y - 7, 2, 4);
-    box(ctx, black, x + 5, y - 7, 2, 4);
-    box(ctx, paint, x - 5, y - 10, 1, 2);
-    box(ctx, paint, x + 5, y - 10, 1, 2);
-    box(ctx, black, x - 1, y - 3, 4, 1);
+    pixelOval(ctx, black, x - 7, y - 11, 5, 5, 1);
+    pixelOval(ctx, black, x + 3, y - 11, 5, 5, 1);
+    box(ctx, black, x - 5, y - 6, 1, 2);
+    box(ctx, black, x + 5, y - 6, 1, 2);
+    box(ctx, paint, x - 6, y - 10, 2, 2);
+    box(ctx, paint, x + 4, y - 10, 2, 2);
+    box(ctx, paint, x - 3, y - 7, 1, 1);
+    box(ctx, paint, x + 7, y - 7, 1, 1);
+    box(ctx, black, x - 2, y - 4, 1, 1);
+    box(ctx, black, x + 2, y - 4, 1, 1);
+    box(ctx, black, x - 1, y - 3, 3, 1);
   } else {
     box(ctx, '#fff6e7', x - 6, y - 9, 4, 4);
     box(ctx, '#fff6e7', x + 3, y - 9, 4, 4);
@@ -326,6 +397,67 @@ function drawPoop(ctx, x, y, theme, used) {
     box(ctx, '#493e4c', x + 3, y - 8, 2, 3);
     box(ctx, '#73574e', x, y - 3, 2, 1);
   }
+}
+
+function drawGull(ctx, gull, y, time, theme, reducedMotion) {
+  const outline = theme === 'winter' ? '#25374a' : theme === 'kvlt' ? '#393340' : '#535d63';
+  const white = '#fffdf0';
+  const gray = '#b5bfc4';
+  const flap = reducedMotion ? 0 : Math.sin(time * 9 + gull.id * 1.7);
+  ctx.save();
+  ctx.translate(Math.round(gull.x), Math.round(y));
+  ctx.scale(gull.direction < 0 ? -1 : 1, 1);
+
+  // The wings flap around the fixed 30 × 14 body; the model owns its flight path.
+  box(ctx, '#819098', -17, -9, 12, 3);
+  box(ctx, gray, -12, -6, 11, 4);
+  if (flap > 0.25) {
+    shape(ctx, outline, [[-9, 0], [-13, -5], [-13, -10], [-17, -10], [-17, -17], [-20, -17], [-20, -21], [-14, -21], [-14, -17], [-10, -17], [-10, -11], [-6, -11], [-6, -6], [-2, -2]]);
+    shape(ctx, gray, [[-8, -2], [-11, -5], [-11, -11], [-15, -11], [-15, -17], [-13, -17], [-13, -14], [-9, -14], [-9, -9], [-5, -9], [-5, -4]]);
+    box(ctx, '#e5ecee', -10, -9, 3, 5);
+  } else if (flap < -0.25) {
+    shape(ctx, outline, [[-8, -3], [-2, 0], [-2, 8], [-6, 8], [-6, 13], [-10, 13], [-10, 17], [-17, 17], [-17, 13], [-13, 13], [-13, 7], [-10, 7]]);
+    shape(ctx, gray, [[-8, 0], [-4, 1], [-4, 6], [-8, 6], [-8, 11], [-12, 11], [-12, 14], [-14, 14], [-11, 9], [-8, 9]]);
+    box(ctx, '#e5ecee', -7, 2, 3, 4);
+  } else {
+    shape(ctx, outline, [[-7, 0], [-13, -3], [-19, -3], [-19, -5], [-26, -5], [-26, -9], [-19, -9], [-19, -7], [-12, -7], [-12, -5], [-6, -5], [-1, -1]]);
+    box(ctx, gray, -18, -5, 11, 3);
+    box(ctx, '#e5ecee', -11, -4, 7, 3);
+  }
+  shape(ctx, outline, [[-11, -2], [-20, -1], [-17, 3], [-21, 5], [-10, 6]]);
+  box(ctx, '#e5ecee', -16, 1, 7, 3);
+  pixelOval(ctx, outline, -15, -6, 30, 13, 3);
+  pixelOval(ctx, gray, -13, -4, 27, 10, 2);
+  pixelOval(ctx, white, -12, -4, 26, 8, 2);
+  box(ctx, '#e0e7e7', -9, 3, 17, 2);
+  pixelOval(ctx, outline, 5, -8, 12, 12, 2);
+  pixelOval(ctx, white, 7, -6, 8, 9, 1);
+  box(ctx, '#303a42', 11, -4, 2, 2);
+  box(ctx, white, 11, -4, 1, 1);
+  box(ctx, '#94713b', 15, -3, 9, 4);
+  box(ctx, '#f2bf50', 16, -3, 7, 2);
+  box(ctx, '#ffd779', 16, -3, 4, 1);
+  box(ctx, '#d8a044', 0, 6, 3, 2);
+  box(ctx, '#d8a044', 6, 6, 3, 2);
+  ctx.restore();
+}
+
+function drawGullHit(ctx, hit, time, screenY, theme, reducedMotion) {
+  if (!hit) return;
+  const age = time - hit.time;
+  if (age < 0 || age >= 0.2) return;
+  const progress = age / 0.2;
+  const spread = reducedMotion ? 0 : progress * 7;
+  const y = screenY(hit.y);
+  ctx.save();
+  ctx.globalAlpha = reducedMotion ? 0.85 : 1 - progress;
+  for (const [dx, dy, size] of [[-18, -12, 2], [18, -9, 2], [-14, 10, 1], [16, 13, 1]]) {
+    star(ctx, hit.x + dx + Math.sign(dx) * spread, y + dy + Math.sign(dy) * spread,
+      isDarkTheme(theme) ? '#ffe5a4' : '#e8b654', size);
+  }
+  box(ctx, isDarkTheme(theme) ? '#fff3d0' : '#fff7d8', hit.x - 25 - spread, y - 2, 5, 2);
+  box(ctx, isDarkTheme(theme) ? '#fff3d0' : '#fff7d8', hit.x + 21 + spread, y + 2, 5, 2);
+  ctx.restore();
 }
 
 /** Draw the round Ponppu character, anchored at the unchanged physics feet. */
@@ -383,28 +515,40 @@ export function drawBunny(ctx, x, feetY, {
   pixelOval(ctx, white, -18, -31, 35, 22, 3);
   box(ctx, white, -12, -13, 24, 10);
 
+  if (theme === 'autumn') {
+    // A short knitted beanie covers the ear bases, leaving the ears and lashes clear.
+    pixelOval(ctx, '#6e3927', -17, -38, 34, 10, 2);
+    pixelOval(ctx, '#b95720', -15, -36, 30, 7, 2);
+    box(ctx, '#cc6d2e', -10, -36, 16, 2);
+    box(ctx, '#a94c1d', 10, -33, 3, 3);
+    pixelOval(ctx, '#6e3927', -20, -32, 40, 5, 1);
+    box(ctx, '#9e481c', -18, -31, 36, 3);
+    box(ctx, '#d17a39', -16, -31, 30, 1);
+    for (let rib = -15; rib <= 15; rib += 5) box(ctx, '#bb6229', rib, -30, 1, 2);
+    pixelOval(ctx, '#6e3927', -4, -46, 9, 9, 2);
+    pixelOval(ctx, '#b95720', -3, -45, 7, 7, 2);
+    box(ctx, '#dc8a48', -1, -44, 3, 2);
+    box(ctx, '#cc6d2e', -2, -42, 2, 2);
+  }
+
   const eyeX = facing < 0 ? -1 : 1;
-  if (theme !== 'meadow') {
+  if (isDarkTheme(theme)) {
     const paint = '#29252e';
-    // Corpse paint frames the eyes with tapered points; there is no collar.
-    pixelOval(ctx, paint, -13 + eyeX, -27, 11, 12, 2);
-    pixelOval(ctx, paint, 3 + eyeX, -27, 11, 12, 2);
-    box(ctx, paint, -9 + eyeX, -31, 1, 4);
-    box(ctx, paint, -10 + eyeX, -29, 3, 4);
-    box(ctx, paint, 8 + eyeX, -31, 1, 4);
-    box(ctx, paint, 7 + eyeX, -29, 3, 4);
-    box(ctx, paint, -10 + eyeX, -17, 3, 6);
-    box(ctx, paint, -9 + eyeX, -11, 1, 3);
-    box(ctx, paint, 8 + eyeX, -17, 3, 6);
-    box(ctx, paint, 9 + eyeX, -11, 1, 3);
-    box(ctx, paint, -14 + eyeX, -27, 2, 1);
-    box(ctx, paint, -15 + eyeX, -28, 1, 1);
-    box(ctx, paint, 13 + eyeX, -27, 2, 1);
-    box(ctx, paint, 15 + eyeX, -28, 1, 1);
-    pixelOval(ctx, white, -10 + eyeX, -24, 5, 6, 1);
-    pixelOval(ctx, white, 6 + eyeX, -24, 5, 6, 1);
-    box(ctx, paint, -8 + eyeX, -24, 1, 3);
-    box(ctx, paint, 8 + eyeX, -24, 1, 3);
+    // Rounded eye paint and short cheek marks keep the little goth face gentle.
+    pixelOval(ctx, paint, -12 + eyeX, -26, 10, 10, 2);
+    pixelOval(ctx, paint, 3 + eyeX, -26, 10, 10, 2);
+    box(ctx, paint, -9 + eyeX, -28, 2, 2);
+    box(ctx, paint, 6 + eyeX, -28, 2, 2);
+    box(ctx, paint, -9 + eyeX, -17, 2, 4);
+    box(ctx, paint, 7 + eyeX, -17, 2, 4);
+    pixelOval(ctx, white, -10 + eyeX, -25, 6, 7, 1);
+    pixelOval(ctx, white, 5 + eyeX, -25, 6, 7, 1);
+    box(ctx, paint, -8 + eyeX, -24, 2, 4);
+    box(ctx, paint, 7 + eyeX, -24, 2, 4);
+    box(ctx, white, -8 + eyeX, -24, 1, 1);
+    box(ctx, white, 7 + eyeX, -24, 1, 1);
+    box(ctx, '#d3ccd8', -6 + eyeX, -20, 1, 1);
+    box(ctx, '#d3ccd8', 9 + eyeX, -20, 1, 1);
   } else {
     if (trapped) {
       box(ctx, outline, -10, -24, 6, 2);
@@ -504,7 +648,8 @@ function drawComboBurst(ctx, game, theme, reducedMotion) {
   const fontSize = Math.min(24, Math.floor(24 * 228 / ctx.measureText(label).width));
   ctx.font = `bold ${fontSize}px monospace`;
   const halfWidth = (Math.ceil(ctx.measureText(label).width) + 28) / 2;
-  const positions = [[180, 158], [132, 210], [228, 246], [150, 258], [222, 183]];
+  // Keep the whole celebration below the midpoint and clear of the bottom controls.
+  const positions = [[180, 420], [132, 452], [228, 436], [150, 468], [222, 456]];
   const [requestedX, y] = positions[(game.satsumaStreak - 3) % positions.length];
   const extent = (halfWidth + 18) * 1.12;
   const x = Math.max(16 + extent, Math.min(WIDTH - 16 - extent, requestedX));
@@ -574,7 +719,7 @@ function drawJoystick(ctx, joystick, theme) {
   const dy = Math.max(-42, Math.min(42, joystick.dy));
   ctx.save();
   ctx.strokeStyle = theme === 'winter' ? '#e1f1fa' : theme === 'kvlt' ? '#eee0e9' : '#fffbed';
-  ctx.fillStyle = theme !== 'meadow' ? 'rgba(12,23,38,.3)' : 'rgba(62,95,72,.13)';
+  ctx.fillStyle = isDarkTheme(theme) ? 'rgba(12,23,38,.3)' : theme === 'autumn' ? 'rgba(107,77,45,.16)' : 'rgba(62,95,72,.13)';
   ctx.lineWidth = 2;
   ctx.globalAlpha = 0.85;
   ctx.beginPath();
@@ -602,7 +747,7 @@ function drawJoystick(ctx, joystick, theme) {
 
 /** Render only: world coordinates and physics are owned by the game model. */
 export function drawGame(ctx, game, options = {}) {
-  const theme = options.theme === 'winter' || options.theme === 'kvlt' ? options.theme : 'meadow';
+  const theme = options.theme === 'winter' || options.theme === 'kvlt' || options.theme === 'autumn' ? options.theme : 'meadow';
   const palette = palettes[theme];
   const time = game.phase === 'ready' ? options.time ?? game.time ?? 0 : game.time;
   const reducedMotion = Boolean(options.reducedMotion);
@@ -617,6 +762,12 @@ export function drawGame(ctx, game, options = {}) {
     const y = screenY(platform.y);
     if (y < -50 || y > HEIGHT + 30) continue;
     drawPlatform(ctx, platform, y, palette, theme);
+  }
+
+  for (const gull of game.gulls ?? []) {
+    const y = screenY(gull.y);
+    if (y < -28 || y > HEIGHT + 28 || gull.x < -34 || gull.x > WIDTH + 34) continue;
+    drawGull(ctx, gull, y, visualTime, theme, reducedMotion);
   }
 
   // Items sit in front of every platform, including nearby overlapping platforms.
@@ -659,13 +810,14 @@ export function drawGame(ctx, game, options = {}) {
     vy: player.vy,
     reducedMotion,
   });
+  drawGullHit(ctx, game.lastGullHit, game.time, screenY, theme, reducedMotion);
   if (game.bubble && game.time < game.bubbleUntil) drawBubble(ctx, game.bubble, player.x, bunnyY, theme);
   drawComboBurst(ctx, game, theme, reducedMotion);
 
   // The lower edge is always lethal; a soft shaded lip makes it visible without clutter.
   const edge = ctx.createLinearGradient(0, HEIGHT - 48, 0, HEIGHT);
-  edge.addColorStop(0, theme !== 'meadow' ? 'rgba(7,15,28,0)' : 'rgba(65,99,74,0)');
-  edge.addColorStop(1, theme !== 'meadow' ? 'rgba(7,15,28,.42)' : 'rgba(65,99,74,.22)');
+  edge.addColorStop(0, isDarkTheme(theme) ? 'rgba(7,15,28,0)' : theme === 'autumn' ? 'rgba(89,64,42,0)' : 'rgba(65,99,74,0)');
+  edge.addColorStop(1, isDarkTheme(theme) ? 'rgba(7,15,28,.42)' : theme === 'autumn' ? 'rgba(89,64,42,.25)' : 'rgba(65,99,74,.22)');
   ctx.fillStyle = edge;
   ctx.fillRect(0, HEIGHT - 48, WIDTH, 48);
   drawJoystick(ctx, options.joystick, theme);

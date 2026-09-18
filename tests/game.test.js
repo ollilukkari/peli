@@ -6,6 +6,22 @@ import {
 
 const DT = 1 / 120;
 
+function withoutGulls(game) {
+  // Isolate platform geometry and fruit guarantees from optional airborne hits.
+  game.gulls = [];
+  game.nextGullY = Infinity;
+  return game;
+}
+
+function addGull(game, { x = 180, y = 300, speed = 0, direction = 1, bobSpeed = 0 } = {}) {
+  const flightOffset = direction > 0 ? x - 30 : (WIDTH - 60) * 2 - (x - 30);
+  const gull = { id: game.gulls.length, x, y, direction, baseY: y,
+    flightOffset: flightOffset - game.time * speed, speed,
+    bobOffset: 14 - game.time * bobSpeed, bobSpeed };
+  game.gulls.push(gull);
+  return gull;
+}
+
 function addFuturePlatforms(game, startY) {
   for (let index = 0; index < 20; index += 1) {
     game.platforms.push({ id: 10000 + index, x: 0, y: startY + index * 100,
@@ -14,7 +30,7 @@ function addFuturePlatforms(game, startY) {
 }
 
 function emptyGame() {
-  const game = createGame(1);
+  const game = withoutGulls(createGame(1));
   startGame(game);
   game.platforms = [];
   game.generatedTopY = 1e9;
@@ -67,7 +83,7 @@ test('satsuma launch gives three times normal jump height', () => {
   const normal = peak(null);
   const satsuma = peak('satsuma');
   assert.ok(Math.abs(satsuma.height / normal.height - 3) < 0.002);
-  assert.ok(['Hyvää', 'Nam', 'Njömps', 'Njömpsis'].includes(satsuma.game.bubble));
+  assert.ok(['Hyvää!', 'Nam!', 'Njömps!', 'Njömpsis!'].includes(satsuma.game.bubble));
   assert.equal(satsuma.game.platforms[0].item.used, true);
 });
 
@@ -156,6 +172,11 @@ test('poop preserves direction and faster arrivals slide faster and farther', ()
   assert.ok(fast.x > 180);
   assert.ok(left.x < 180);
   assert.equal(fast.game.player.vy, PHYSICS.jumpSpeed);
+  for (const result of [slow, fast, left]) {
+    const previousDistance = result.initialSpeed ** 2 / (2 * 400);
+    assert.ok(Math.abs(result.distance - previousDistance * 1.5) < 0.02,
+      'the same arrival speed now slides 1.5 times farther before bouncing');
+  }
 });
 
 test('zero-speed poop causes a stationary wobble followed by a bounce', () => {
@@ -168,6 +189,21 @@ test('zero-speed poop causes a stationary wobble followed by a bounce', () => {
   advance(game, 0.14, 1);
   assert.equal(game.player.state, 'air');
   assert.ok(game.player.vy > 0);
+});
+
+test('generated poop is about half as common as traps without increasing other item rates', () => {
+  const counts = { satsuma: 0, trap: 0, poop: 0 };
+  let platforms = 0;
+  for (let seed = 0; seed < 2000; seed += 1) {
+    for (const platform of createGame(seed).platforms) {
+      if (platform.id <= 3) continue;
+      platforms += 1;
+      if (platform.item) counts[platform.item.type] += 1;
+    }
+  }
+  assert.ok(counts.poop / counts.trap > 0.44 && counts.poop / counts.trap < 0.56);
+  assert.ok(counts.satsuma / platforms > 0.14 && counts.satsuma / platforms < 0.17);
+  assert.ok(counts.trap / platforms > 0.10 && counts.trap / platforms < 0.13);
 });
 
 test('sliding off a ledge falls, while hitting a wall stops and bounces', () => {
@@ -379,7 +415,7 @@ test('real physics can land safely after sampled jumps from either patch edge an
 
 test('complete generated scenes support continuous routes without using satsumas', () => {
   for (let seed = 0; seed < 80; seed += 1) {
-    let game = createGame(seed);
+    let game = withoutGulls(createGame(seed));
     startGame(game);
     game.events = [];
     for (let hop = 0; hop < 24; hop += 1) {
@@ -422,7 +458,7 @@ test('complete generated scenes support continuous routes without using satsumas
 });
 
 function collectInitialSatsuma({ seed = 42, x = 180, vx = 0, dt = DT, extraPlatforms } = {}) {
-  const game = createGame(seed);
+  const game = withoutGulls(createGame(seed));
   startGame(game);
   const source = game.platforms[0];
   source.x = 0;
@@ -555,7 +591,7 @@ test('combos count consecutive satsumas and reset on every other kind of landing
 
 test('chain fruit leaves all platform geometry and normal route state intact', () => {
   for (let seed = 0; seed < 40; seed += 1) {
-    let game = createGame(seed);
+    let game = withoutGulls(createGame(seed));
     startGame(game);
     const initialRoute = [game.generatedTopY, game.generatedCenterX, game.generatedSafeWidth, game.generationIndex];
     const geometry = game.platforms.map(({ id, x, y, width }) => ({ id, x, y, width }));
@@ -669,4 +705,160 @@ test('seed 35 reserves headroom for a naturally generated fruit outside the cent
   assert.ok(lower.item.x > lower.safeX + lower.safeWidth / 2);
   assert.ok(lower.item.x + 22 > upper.x && lower.item.x - 22 < upper.x + upper.width);
   assert.ok(upper.y - lower.y >= 72 - 1e-6);
+});
+
+test('gulls kick airborne bunnies diagonally up and away on either side', () => {
+  for (const side of [-1, 1]) {
+    const game = emptyGame();
+    addGull(game);
+    Object.assign(game.player, { x: 180 + side * 20, y: 284, vy: -100 });
+    game.satsumaStreak = 3;
+    game.chainTargetId = 55;
+    stepGame(game, DT);
+    assert.equal(game.player.vx, side * PHYSICS.gullSideSpeed);
+    assert.equal(game.player.vy, PHYSICS.gullJumpSpeed);
+    assert.equal(game.player.state, 'air');
+    assert.equal(game.satsumaStreak, 3);
+    assert.equal(game.chainTargetId, 55);
+    assert.equal(game.events.filter((event) => event.type === 'gull').length, 1);
+    assert.deepEqual(game.lastGullHit, { x: game.player.x,
+      y: game.player.y + PHYSICS.playerHeight / 2, time: game.time });
+    const kickedVx = Math.abs(game.player.vx);
+    stepGame(game, DT, -side);
+    assert.ok(Math.abs(game.player.vx) < kickedVx, 'normal input recovers after the impulse');
+  }
+});
+
+test('swept gull hits catch fast boosted crossings and preserve remaining upward speed', () => {
+  const game = emptyGame();
+  addGull(game);
+  Object.assign(game.player, { x: 160, y: 220, vy: 1600 });
+  stepGame(game, 0.1);
+  assert.equal(game.events[0]?.type, 'gull');
+  assert.ok(game.player.y < 300);
+  assert.ok(game.player.vy > PHYSICS.gullJumpSpeed);
+  assert.ok(game.player.vy <= 1600);
+  assert.equal(game.player.vx, -PHYSICS.gullSideSpeed);
+});
+
+test('moving gull sweeps include both passes through a horizontal turn', () => {
+  const game = emptyGame();
+  addGull(game, { x: 230, speed: 1000 });
+  Object.assign(game.player, { x: 300, y: 280, vy: 150 });
+  stepGame(game, 0.2);
+  assert.equal(game.events[0]?.type, 'gull');
+  assert.equal(game.player.vx, PHYSICS.gullSideSpeed);
+  assert.equal(game.gulls[0].x, 230);
+  assert.equal(game.gulls[0].direction, -1);
+  assert.ok(Number.isFinite(game.player.x) && Number.isFinite(game.player.y));
+});
+
+test('gull body edges collide while nearby nonoverlapping paths miss', () => {
+  for (const gap of [0, 0.1]) {
+    const game = emptyGame();
+    addGull(game);
+    Object.assign(game.player, { x: 180 + (PHYSICS.playerWidth + PHYSICS.gullWidth) / 2 + gap,
+      y: 284, vy: 0 });
+    stepGame(game, DT);
+    assert.equal(game.events.some((event) => event.type === 'gull'), gap === 0);
+    assert.ok(Number.isFinite(game.player.x) && Number.isFinite(game.player.y));
+  }
+});
+
+test('the first crossed obstacle decides between platform landing and gull impact', () => {
+  for (const gullY of [150, 210]) {
+    const game = emptyGame();
+    addGull(game, { y: gullY });
+    game.platforms = [{ id: 10, x: 100, y: 185, width: 160, item: { type: 'trap', x: 180, used: false } }];
+    Object.assign(game.player, { x: 180, y: 220, vy: -1000 });
+    stepGame(game, 0.1);
+    if (gullY === 150) {
+      assert.equal(game.events[0]?.type, 'trap');
+      assert.equal(game.player.state, 'trapped');
+      assert.equal(game.lastGullHit, null);
+    } else {
+      assert.equal(game.events[0]?.type, 'gull');
+      assert.equal(game.platforms[0].item.used, false);
+    }
+  }
+});
+
+test('gull hits have one shared cooldown and can hit again after it expires', () => {
+  const game = emptyGame();
+  addGull(game);
+  addGull(game, { x: 190 });
+  Object.assign(game.player, { x: 180, y: 284, vy: 0 });
+  stepGame(game, DT);
+  assert.equal(game.events.filter((event) => event.type === 'gull').length, 1);
+  Object.assign(game.player, { x: 180, y: 284, vy: 0, vx: 0 });
+  stepGame(game, 0.3);
+  assert.equal(game.events.filter((event) => event.type === 'gull').length, 1);
+  game.time = game.gullInvulnerableUntil;
+  Object.assign(game.player, { x: 180, y: 284, vy: 0, vx: 0 });
+  stepGame(game, DT);
+  assert.equal(game.events.filter((event) => event.type === 'gull').length, 2);
+});
+
+test('gulls push away from walls and never free a trap or interrupt a slide', () => {
+  for (const side of [-1, 1]) {
+    const game = emptyGame();
+    addGull(game, { x: side < 0 ? 30 : 330 });
+    Object.assign(game.player, { x: side < 0 ? 11 : 349, y: 284, vy: 0 });
+    stepGame(game, DT);
+    assert.equal(game.player.vx, -side * PHYSICS.gullSideSpeed);
+    assert.ok(game.player.x >= 11 && game.player.x <= 349);
+  }
+  for (const state of ['trapped', 'sliding']) {
+    const game = emptyGame();
+    addGull(game);
+    game.platforms = [{ id: 10, x: 0, y: 284, width: WIDTH, item: null }];
+    Object.assign(game.player, { x: 180, y: 284, vy: 0, vx: 80,
+      state, platformId: 10, slipRemaining: 1 });
+    stepGame(game, DT);
+    assert.equal(game.player.state, state);
+    assert.equal(game.events.some((event) => event.type === 'gull'), false);
+    assert.equal(game.lastGullHit, null);
+  }
+});
+
+test('gull flight is frozen in every inactive phase', () => {
+  for (const phase of ['ready', 'paused', 'over']) {
+    const game = createGame(9);
+    game.phase = phase;
+    const snapshot = structuredClone(game);
+    stepGame(game, 0.5, 1);
+    assert.deepEqual(game, snapshot);
+  }
+});
+
+test('gull flights are deterministic, sparse, bounded and independent of platform randomness', () => {
+  const first = createGame(456);
+  const second = createGame(456);
+  const noGulls = withoutGulls(createGame(456));
+  assert.ok(first.gulls.every((gull) => gull.y > HEIGHT));
+  assert.notDeepEqual(first.gulls, createGame(457).gulls);
+  for (const game of [first, second, noGulls]) startGame(game);
+  let sawLeft = false;
+  let sawRight = false;
+  for (let frame = 0; frame < 800; frame += 1) {
+    const camera = frame * 30;
+    for (const game of [first, second, noGulls]) {
+      game.camera = camera;
+      Object.assign(game.player, { y: camera + 250, state: 'trapped', vy: 0 });
+      stepGame(game, 0.05);
+    }
+    assert.deepEqual(first, second);
+    assert.deepEqual(first.platforms, noGulls.platforms);
+    assert.equal(first.randomState, noGulls.randomState);
+    assert.ok(first.gulls.length <= 3);
+    assert.ok(first.gulls.filter((gull) => gull.y >= first.camera && gull.y <= first.camera + HEIGHT).length <= 2);
+    for (const gull of first.gulls) {
+      assert.ok(gull.x >= 30 && gull.x <= WIDTH - 30);
+      assert.ok(Math.abs(gull.y - gull.baseY) <= 14);
+      assert.ok(gull.baseY + 14 >= first.camera - 60);
+      sawLeft ||= gull.direction === -1;
+      sawRight ||= gull.direction === 1;
+    }
+  }
+  assert.ok(sawLeft && sawRight);
 });

@@ -17,9 +17,8 @@
 .desktop-hint{white-space:normal;line-height:2.3}
 .menu{padding-top:19%}
 .menu h1{font-size:clamp(28px,12cqw,47px);line-height:1.04;letter-spacing:-2px;margin:0 0 22px}
-.theme-select{display:grid;grid-template-columns:1fr 1fr;gap:3px;width:85%;max-width:240px}
-.theme-select button{justify-content:center}
-.theme-select button[data-theme-choice="winter"]{grid-column:1/-1}
+.theme-select{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;width:100%;max-width:280px}
+.theme-select button{justify-content:center;padding:7px 5px;gap:4px}
 .menu::before{inset:6% 0 33%}
 .dialog-card h2{margin-bottom:24px}
 .game-frame[data-theme="winter"]{border-color:#293a52}
@@ -33,3 +32,35 @@
 .combo-badge{margin-top:7px;padding:4px 7px;border:1px solid #805139;border-radius:3px;background:#ffe6a6;color:#644532;font:800 11px/1.3 ui-monospace,monospace;letter-spacing:.5px;text-shadow:none;box-shadow:2px 2px #5e42232b}
 .game-frame[data-theme="kvlt"] .combo-badge{color:#f7d4a8;background:#4a303b;border-color:#bd8b88}
 .game-frame[data-theme="winter"] .combo-badge{color:#e1f3fc;background:#21394e;border-color:#83b7d5}
+/* Carry each world's palette through the surrounding page and browser chrome. */
+body[data-theme="meadow"]{background-color:#e6edda;--line:#c8d2bc}
+body[data-theme="autumn"]{background-color:#efdbb6;color:#59422f;--ink:#59422f;--muted:#826449;--line:#d1b68e}
+body:is([data-theme="kvlt"],[data-theme="winter"]){color:#d8cedf;--ink:#d8cedf;--muted:#b1a5bd;--line:#493e56;background-color:#242034;background-image:radial-gradient(#bb9bd514 .65px,transparent .65px)}
+body[data-theme="winter"]{background-color:#101d30;color:#c6dce9;--ink:#c6dce9;--muted:#9db6ca;--line:#30465f;background-image:radial-gradient(#add2f014 .65px,transparent .65px)}
+body:not([data-theme="meadow"]) :is(.instruction p,.guide-item p,.desktop-hint,.under-game){color:var(--muted)}
+body:not([data-theme="meadow"]) .instruction strong{color:var(--ink)}
+body:not([data-theme="meadow"]) .step{color:var(--muted)}
+body:not([data-theme="meadow"]) kbd{background:transparent;color:var(--ink);border-color:var(--line)}
+body:not([data-theme="meadow"]) .quiet-button{border-color:var(--line)}
+body:is([data-theme="kvlt"],[data-theme="winter"]) .item-badge{background:var(--line);color:var(--ink)}
+body:is([data-theme="kvlt"],[data-theme="winter"]) .update-notice{background:var(--line);border-color:var(--muted);color:var(--ink)}
+.game-frame[data-theme="meadow"]{border-color:#708d69;box-shadow:6px 7px #60785821,0 14px 30px #536b4620}
+.game-frame[data-theme="autumn"]{background:#e9c993;border-color:#a27848;box-shadow:6px 7px #80552f21,0 14px 30px #89583020;color:#59422f}
+.game-frame[data-theme="kvlt"]{border-color:#49405d;box-shadow:6px 7px #15101e60,0 14px 30px #110e1940}
+.game-frame[data-theme="winter"]{border-color:#2c4662;box-shadow:6px 7px #050e1b60,0 14px 30px #040c1940}
+.game-frame[data-theme="autumn"] .menu::before{background:linear-gradient(transparent,#efd4a9f5 18%,#efd4a9f5 73%,transparent)}
+.game-frame[data-theme="autumn"] .menu h1{color:#60452f;text-shadow:2px 2px #fff0cf}
+.game-frame[data-theme="autumn"] .menu h1>span{color:#b65332}
+.game-frame[data-theme="autumn"] .theme-select{background:#fae7c5bd;border-color:#cda67280}
+.game-frame[data-theme="autumn"] .theme-select button[aria-pressed="true"]{background:#fff0d4;border-color:#b88b55;box-shadow:0 2px #a4713740}
+.game-frame[data-theme="autumn"] .primary-button{background:#e6a052;border-color:#775037;box-shadow:0 4px #775037}
+.game-frame[data-theme="autumn"] .primary-button:hover{background:#efae63}
+.game-frame[data-theme="autumn"] :is(.record-line,.record-line strong,.pixel-tag){color:#795433}
+.game-frame[data-theme="autumn"] .start-tip{background:#ffebc8cf;color:#684628;border-color:#d7ac6e80}
+.game-frame[data-theme="autumn"] .dialog-card{background:#fae6c5;border-color:#9e724a}
+.game-frame[data-theme="autumn"] :is(.dialog-card p,.text-button){color:#816144}
+.game-frame[data-theme="autumn"] .result strong{color:#a75630}
+.game-frame[data-theme="autumn"] .combo-badge{background:#ffe2a4;border-color:#ad6b36;color:#794729}
+#music{position:relative}
+#music[aria-pressed="false"]{opacity:.55}
+#music[aria-pressed="false"]::after{content:"";position:absolute;width:22px;height:2px;transform:rotate(-45deg);background:currentColor}

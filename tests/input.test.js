@@ -9,13 +9,14 @@ import * as core from '../src/game.js';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
   .replace(/^import .+;\r?\n/gm, '');
 
-function application() {
+function application({ autoStart = true, storedSettings = null } = {}) {
   class Element {
     constructor(isControl = false) {
       this.isControl = isControl;
       this.listeners = new Map();
       this.dataset = {};
       this.captures = new Set();
+      this.attributes = new Map();
     }
     addEventListener(type, listener) {
       if (!this.listeners.has(type)) this.listeners.set(type, []);
@@ -30,7 +31,7 @@ function application() {
       return event;
     }
     closest() { return this.isControl ? this : null; }
-    setAttribute() {}
+    setAttribute(name, value) { this.attributes.set(name, value); }
     focus() { document.activeElement = this; }
     getContext() { return {}; }
     getBoundingClientRect() { return { left: 10, top: 20, width: core.WIDTH, height: core.HEIGHT }; }
@@ -40,30 +41,46 @@ function application() {
   }
   const elements = new Map();
   const element = (id) => {
-    if (!elements.has(id)) elements.set(id, new Element(['#start', '#sound', '#resume'].includes(id)));
+    if (!elements.has(id)) elements.set(id, new Element(['#start', '#sound', '#music', '#resume'].includes(id)));
     return elements.get(id);
   };
+  const themeButtons = new Map(['meadow', 'autumn', 'winter'].map((theme) => {
+    const button = new Element(true);
+    button.dataset.themeChoice = theme;
+    return [theme, button];
+  }));
   const document = Object.assign(new Element(), {
     hidden: false,
+    body: new Element(),
+    documentElement: { style: {} },
     querySelector: element,
-    querySelectorAll: () => [],
+    querySelectorAll: (selector) => selector === '[data-theme-choice]' ? [...themeButtons.values()] : [],
   });
   const window = new Element();
+  const storage = new Map();
+  if (storedSettings) storage.set('ponppu.settings.v1', JSON.stringify(storedSettings));
+  const audioScenes = [];
+  const musicChanges = [];
   const context = vm.createContext({
     ...core, Element, document, window,
     matchMedia: () => Object.assign(new Element(), { matches: false }),
-    localStorage: { getItem: () => null, setItem() {} },
+    localStorage: { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
     crypto: { getRandomValues: (values) => { values[0] = 42; return values; } },
-    GameAudio: class { unlock() {} play() {} setEnabled() {} },
+    GameAudio: class {
+      unlock() {} play() {} setEnabled() {}
+      setScene(theme, phase) { audioScenes.push({ theme, phase }); }
+      setMusicEnabled(value) { musicChanges.push(value); }
+    },
     setupPwa: () => ({ applyUpdate: async () => false }),
     drawGame() {}, requestAnimationFrame() {},
   });
   vm.runInContext(mainSource, context, { filename: 'src/main.js' });
-  element('#start').dispatch('click');
+  if (autoStart) element('#start').dispatch('click');
   const canvas = element('#game');
   const inspect = (expression) => vm.runInContext(expression, context);
   return {
-    document, window, element, canvas, inspect,
+    document, window, element, canvas, inspect, themeButtons, audioScenes, musicChanges,
+    savedSettings: () => JSON.parse(storage.get('ponppu.settings.v1')),
     get game() { return inspect('game'); },
     axis: () => inspect('getAxis()'),
     trap() {
@@ -214,4 +231,106 @@ test('the HUD reveals a real satsuma chain on its third landing and hides it aft
   assert.equal(app.element('#combo').hidden, true);
   assert.equal(app.game.satsumaStreak, 0);
   assert.ok(app.game.score > 0, 'ending the combo must preserve earned distance');
+});
+
+test('a saved autumn theme restores its selection and audio scene before a round starts', () => {
+  const app = application({ autoStart: false, storedSettings: { theme: 'autumn', sound: true } });
+  assert.equal(app.game.phase, 'ready');
+  assert.equal(app.element('#game-frame').dataset.theme, 'autumn');
+  assert.equal(app.document.body.dataset.theme, 'autumn');
+  assert.equal(app.themeButtons.get('autumn').attributes.get('aria-pressed'), 'true');
+  assert.equal(app.themeButtons.get('meadow').attributes.get('aria-pressed'), 'false');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'autumn', phase: 'ready' });
+  app.element('#start').dispatch('click');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'autumn', phase: 'playing' });
+});
+
+test('menu theme choices save the selected world and notify audio without a phase change', () => {
+  const app = application({ autoStart: false });
+  for (const theme of ['autumn', 'winter', 'meadow']) {
+    const previousCalls = app.audioScenes.length;
+    app.themeButtons.get(theme).dispatch('click');
+    assert.equal(app.game.phase, 'ready');
+    assert.equal(app.element('#game-frame').dataset.theme, theme);
+    assert.equal(app.document.body.dataset.theme, theme);
+    assert.equal(app.savedSettings().theme, theme);
+    assert.equal(app.themeButtons.get(theme).attributes.get('aria-pressed'), 'true');
+    assert.ok(app.audioScenes.length > previousCalls, 'theme changes must reach the audio engine');
+    assert.deepEqual(app.audioScenes.at(-1), { theme, phase: 'ready' });
+  }
+});
+
+test('a saved hidden Kvltist selection opens Talvi with the winter audio scene', () => {
+  const app = application({ autoStart: false, storedSettings: { theme: 'kvlt', sound: true } });
+  assert.equal(app.document.body.dataset.theme, 'winter');
+  assert.equal(app.element('#mode-label').textContent, 'TALVI');
+  assert.equal(app.themeButtons.get('winter').attributes.get('aria-pressed'), 'true');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'winter', phase: 'ready' });
+  app.element('#start').dispatch('click');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'winter', phase: 'playing' });
+});
+
+test('music preference restores and toggles independently without pausing the game or muting effects', () => {
+  const app = application({ storedSettings: { theme: 'autumn', sound: true, music: false } });
+  const music = app.element('#music');
+  assert.equal(music.attributes.get('aria-pressed'), 'false');
+  assert.equal(music.attributes.get('aria-label'), 'Music on');
+  assert.equal(app.inspect('settings.music'), false);
+  music.focus();
+  music.dispatch('click');
+  assert.deepEqual(app.musicChanges, [true]);
+  assert.equal(music.attributes.get('aria-pressed'), 'true');
+  assert.equal(music.attributes.get('aria-label'), 'Music off');
+  assert.equal(app.savedSettings().sound, true);
+  assert.equal(app.savedSettings().music, true);
+  assert.equal(app.game.phase, 'playing');
+  assert.equal(app.document.activeElement, app.canvas);
+  music.dispatch('click');
+  assert.deepEqual(app.musicChanges, [true, false]);
+  assert.equal(app.savedSettings().sound, true);
+  assert.equal(app.savedSettings().music, false);
+  assert.equal(app.element('#sound').attributes.get('aria-pressed'), 'true');
+});
+
+test('start, pause, resume, menu and a real falling loss update the audio scene once per transition', () => {
+  const app = application({ autoStart: false, storedSettings: { theme: 'autumn', sound: true } });
+  const initialCalls = app.audioScenes.length;
+  app.element('#start').dispatch('click');
+  app.element('#pause').dispatch('click');
+  app.element('#resume').dispatch('click');
+  app.element('#pause').dispatch('click');
+  app.element('#back-menu').dispatch('click');
+  app.element('#start').dispatch('click');
+  Object.assign(app.game.player, { y: app.game.camera - 1, vy: -100 });
+  core.stepGame(app.game, 1 / 120, 0);
+  app.inspect('processEvents(); refreshUi()');
+  assert.equal(app.game.phase, 'over');
+  assert.deepEqual(app.audioScenes.slice(initialCalls),
+    ['playing', 'paused', 'playing', 'paused', 'ready', 'playing', 'over']
+      .map((phase) => ({ theme: 'autumn', phase })));
+  const afterLoss = app.audioScenes.length;
+  app.inspect('refreshUi(); refreshUi()');
+  assert.equal(app.audioScenes.length, afterLoss, 'unchanged frames must not restart music');
+  app.element('#change-world').dispatch('click');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'autumn', phase: 'ready' });
+});
+
+test('blur and hidden-page transitions pause the audio scene until the player explicitly resumes', () => {
+  const app = application({ storedSettings: { theme: 'winter', sound: true } });
+  app.window.dispatch('blur');
+  assert.equal(app.game.phase, 'paused');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'winter', phase: 'paused' });
+  app.element('#resume').dispatch('click');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'winter', phase: 'playing' });
+  app.document.hidden = true;
+  app.document.dispatch('visibilitychange');
+  assert.equal(app.game.phase, 'paused');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'winter', phase: 'paused' });
+  const pausedCalls = app.audioScenes.length;
+  app.document.hidden = false;
+  app.document.dispatch('visibilitychange');
+  assert.equal(app.game.phase, 'paused');
+  assert.equal(app.audioScenes.length, pausedCalls);
+  app.element('#resume').dispatch('click');
+  assert.deepEqual(app.audioScenes.at(-1), { theme: 'winter', phase: 'playing' });
 });

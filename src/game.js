@@ -16,16 +16,23 @@ export const PHYSICS = Object.freeze({
   followHeight: HEIGHT * 0.62,
   trapTaps: 4,
   slipMultiplier: 1.2,
-  slipDeceleration: 400,
+  slipDeceleration: 400 / 1.5,
   zeroSlipDuration: 0.22,
   pixelsPerMeter: 12,
   safeWidth: 40,
+  gullWidth: 30,
+  gullHeight: 14,
+  gullSideSpeed: 320,
+  gullJumpSpeed: 600,
+  gullCooldown: 0.65,
 });
 
-const SAYINGS = ['Hyvää', 'Nam', 'Njömps', 'Njömpsis'];
+const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!', 'Njömpsis!'];
 const NORMAL_HEIGHT = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
 const HALF_BUNNY = PHYSICS.playerWidth / 2;
 const SATSUMA_CLEARANCE = 72; // 38 px fruit + 27 px platform underside + breathing room.
+const GULL_MARGIN = 30;
+const GULL_BOB = 14;
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 
 function random(game) {
@@ -98,10 +105,11 @@ function generatePlatforms(game) {
 
     if (id > 3 && random(game) < 0.38 + difficulty * 0.08) {
       const choice = random(game);
-      const type = choice < 0.4 ? 'satsuma' : choice < 0.7 ? 'trap' : 'poop';
+      const type = choice < 0.4 ? 'satsuma' : choice < 0.7 ? 'trap' : choice < 0.85 ? 'poop' : null;
       const side = random(game) < 0.5 ? -1 : 1;
       // Narrow platforms retain a smaller but still explicit safe landing patch.
-      item = { type, x: center + side * (width / 2 - 15), used: false };
+      // The skipped half of poop still consumes its side draw to preserve routes.
+      if (type) item = { type, x: center + side * (width / 2 - 15), used: false };
     }
 
     insertPlatform(game, {
@@ -118,6 +126,66 @@ function generatePlatforms(game) {
     game.generatedSafeWidth = safeWidth;
     game.generatedSatsumaX = item?.type === 'satsuma' ? item.x : null;
   }
+}
+
+function gullRandom(game, slot) {
+  // An independent, indexed stream leaves every platform and fruit unchanged.
+  let value = game.seed ^ Math.imul(game.gullGenerationIndex + 1, 0x9e3779b9)
+    ^ Math.imul(slot + 1, 0x85ebca6b);
+  value = Math.imul(value ^ (value >>> 16), 0x7feb352d);
+  value = Math.imul(value ^ (value >>> 15), 0x846ca68b);
+  return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
+}
+
+function reflectedPosition(distance, span) {
+  const phase = ((distance % (span * 2)) + span * 2) % (span * 2);
+  return { position: phase <= span ? phase : span * 2 - phase, direction: phase < span ? 1 : -1 };
+}
+
+function gullPosition(gull, time) {
+  const horizontal = reflectedPosition(gull.flightOffset + time * gull.speed, WIDTH - GULL_MARGIN * 2);
+  const vertical = reflectedPosition(gull.bobOffset + time * gull.bobSpeed, GULL_BOB * 2);
+  return { x: GULL_MARGIN + horizontal.position,
+    y: gull.baseY + vertical.position - GULL_BOB, direction: horizontal.direction };
+}
+
+function generateGulls(game) {
+  game.gulls = game.gulls.filter((gull) => gull.baseY + GULL_BOB >= game.camera - 60);
+  while (game.nextGullY <= game.camera + HEIGHT + 450 && game.gulls.length < 3) {
+    const baseY = game.nextGullY;
+    if (baseY + GULL_BOB >= game.camera - 60) {
+      const gull = { id: game.gullGenerationIndex, baseY,
+        flightOffset: gullRandom(game, 1) * (WIDTH - GULL_MARGIN * 2) * 2,
+        speed: 72 + gullRandom(game, 2) * 28,
+        bobOffset: gullRandom(game, 3) * GULL_BOB * 4, bobSpeed: 22 };
+      Object.assign(gull, gullPosition(gull, game.time));
+      game.gulls.push(gull);
+    }
+    game.nextGullY += 450 + gullRandom(game, 4) * 60;
+    game.gullGenerationIndex += 1;
+  }
+}
+
+function moveGulls(game, previousTime) {
+  return game.gulls.map((gull) => {
+    // Split at both kinds of turn so a bird cannot pass through the bunny and
+    // return to the same side unnoticed during a long simulation step.
+    const times = [previousTime, game.time];
+    for (const [offset, speed, span] of [
+      [gull.flightOffset, gull.speed, WIDTH - GULL_MARGIN * 2],
+      [gull.bobOffset, gull.bobSpeed, GULL_BOB * 2],
+    ]) {
+      if (speed === 0) continue;
+      const firstTurn = Math.floor((offset + previousTime * speed) / span) + 1;
+      const lastTurn = Math.ceil((offset + game.time * speed) / span) - 1;
+      for (let turn = firstTurn; turn <= lastTurn; turn += 1) times.push((turn * span - offset) / speed);
+    }
+    times.sort((a, b) => a - b);
+    const points = times.map((time) => ({ ...gullPosition(gull, time),
+      fraction: (time - previousTime) / (game.time - previousTime) }));
+    Object.assign(gull, gullPosition(gull, game.time));
+    return { gull, points };
+  });
 }
 
 export function createGame(seed = Date.now()) {
@@ -139,6 +207,11 @@ export function createGame(seed = Date.now()) {
     chainTargetId: null,
     satsumaStreak: 0,
     lastLanding: null,
+    gulls: [],
+    gullGenerationIndex: 0,
+    nextGullY: 700,
+    gullInvulnerableUntil: 0,
+    lastGullHit: null,
     platforms: [{
       id: 0,
       x: 24,
@@ -163,6 +236,8 @@ export function createGame(seed = Date.now()) {
     events: [],
   };
   generatePlatforms(game);
+  game.nextGullY += gullRandom(game, 0) * 50;
+  generateGulls(game);
   return game;
 }
 
@@ -227,6 +302,8 @@ function land(game, platform, dt) {
     game.trapTaps = 0;
     emit(game, 'trap');
   } else if (item.type === 'poop') {
+    game.bubble = 'Hyi kakkaa';
+    game.bubbleUntil = game.time + 1.8;
     player.state = 'sliding';
     player.platformId = platform.id;
     player.vy = 0;
@@ -274,7 +351,8 @@ function findLanding(platforms, previousX, previousY, player) {
     }
   }
 
-  return landing ? { platform: landing, x: landingX } : null;
+  return landing ? { platform: landing, x: landingX,
+    fraction: (previousY - landing.y) / (previousY - player.y) } : null;
 }
 
 function previewLanding(game, dt, axis, platforms) {
@@ -394,14 +472,69 @@ function ensureSatsumaTarget(game, dt) {
   throw new Error('Generated route has no clear, reachable satsuma landing.');
 }
 
-function stepAir(game, dt, axis) {
+function sweptGullFraction(startX, startY, endX, endY) {
+  let enter = 0;
+  let exit = 1;
+  for (const [start, end, extent] of [
+    [startX, endX, (PHYSICS.playerWidth + PHYSICS.gullWidth) / 2],
+    [startY, endY, (PHYSICS.playerHeight + PHYSICS.gullHeight) / 2],
+  ]) {
+    const delta = end - start;
+    if (delta === 0) {
+      if (Math.abs(start) > extent) return null;
+      continue;
+    }
+    const first = (-extent - start) / delta;
+    const last = (extent - start) / delta;
+    enter = Math.max(enter, Math.min(first, last));
+    exit = Math.min(exit, Math.max(first, last));
+    if (enter > exit) return null;
+  }
+  return enter;
+}
+
+function findGullHit(game, paths, previousX, previousY) {
+  if (game.time < game.gullInvulnerableUntil) return null;
+  const player = game.player;
+  const xAt = (fraction) => previousX + (player.x - previousX) * fraction;
+  const yAt = (fraction) => previousY + (player.y - previousY) * fraction + PHYSICS.playerHeight / 2;
+  let hit = null;
+  for (const { points } of paths) {
+    for (let index = 1; index < points.length; index += 1) {
+      const from = points[index - 1];
+      const to = points[index];
+      const segmentFraction = sweptGullFraction(xAt(from.fraction) - from.x, yAt(from.fraction) - from.y,
+        xAt(to.fraction) - to.x, yAt(to.fraction) - to.y);
+      if (segmentFraction === null) continue;
+      const fraction = from.fraction + (to.fraction - from.fraction) * segmentFraction;
+      if (!hit || fraction < hit.fraction) hit = { fraction, direction: from.direction,
+        x: from.x + (to.x - from.x) * segmentFraction };
+    }
+  }
+  return hit;
+}
+
+function stepAir(game, dt, axis, gullPaths) {
   const player = game.player;
   const previousX = player.x;
   const previousY = player.y;
+  const previousVy = player.vy;
   advanceAir(player, dt, axis);
   const landing = findLanding(game.platforms, previousX, previousY, player);
+  const gullHit = findGullHit(game, gullPaths, previousX, previousY);
 
-  if (landing) {
+  if (gullHit && (!landing || gullHit.fraction < landing.fraction)) {
+    player.x = previousX + (player.x - previousX) * gullHit.fraction;
+    player.y = previousY + (player.y - previousY) * gullHit.fraction;
+    let direction = Math.sign(player.x - gullHit.x) || -gullHit.direction;
+    if (player.x <= HALF_BUNNY + 1) direction = 1;
+    else if (player.x >= WIDTH - HALF_BUNNY - 1) direction = -1;
+    player.vx = direction * PHYSICS.gullSideSpeed;
+    player.vy = Math.max(PHYSICS.gullJumpSpeed, previousVy - PHYSICS.gravity * dt * gullHit.fraction);
+    game.gullInvulnerableUntil = game.time + PHYSICS.gullCooldown;
+    game.lastGullHit = { x: player.x, y: player.y + PHYSICS.playerHeight / 2, time: game.time };
+    emit(game, 'gull');
+  } else if (landing) {
     player.x = landing.x;
     land(game, landing.platform, dt);
   }
@@ -432,9 +565,11 @@ export function stepGame(game, dt, axis = 0) {
   if (!Number.isFinite(axis)) throw new TypeError('Movement axis must be finite.');
   if (game.phase !== 'playing' || dt === 0) return;
 
+  const previousTime = game.time;
   game.time += dt;
+  const gullPaths = moveGulls(game, previousTime);
   axis = clamp(axis, -1, 1);
-  if (game.player.state === 'air') stepAir(game, dt, axis);
+  if (game.player.state === 'air') stepAir(game, dt, axis, gullPaths);
   else if (game.player.state === 'sliding') stepSlide(game, dt);
 
   game.maxY = Math.max(game.maxY, game.player.y);
@@ -452,4 +587,5 @@ export function stepGame(game, dt, axis = 0) {
 
   game.platforms = game.platforms.filter((platform) => platform.y >= game.camera - 80);
   generatePlatforms(game);
+  generateGulls(game);
 }

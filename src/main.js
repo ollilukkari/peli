@@ -28,19 +28,22 @@ function writeStorage(key, value) {
   try { localStorage.setItem(key, value); }
   catch { storageAvailable = false; $('#storage-notice').hidden = false; }
 }
-let settings = { theme: 'meadow', sound: true };
+let settings = { theme: 'meadow', sound: true, music: true };
 const storedSettings = readStorage(settingsKey);
 if (storedSettings) {
   try {
     const parsed = JSON.parse(storedSettings);
-    if (['meadow', 'kvlt', 'winter'].includes(parsed.theme)) settings.theme = parsed.theme;
+    if (['meadow', 'autumn', 'winter'].includes(parsed.theme)) settings.theme = parsed.theme;
+    // The archived Kvltist world is hidden; its saved selection moves to Talvi.
+    if (parsed.theme === 'kvlt') settings.theme = 'winter';
     if (typeof parsed.sound === 'boolean') settings.sound = parsed.sound;
+    if (typeof parsed.music === 'boolean') settings.music = parsed.music;
   } catch { /* Invalid saved preferences are discarded; physics never uses storage. */ }
 }
 const savedRecord = Number(readStorage(recordKey));
 let best = Number.isFinite(savedRecord) && savedRecord >= 0 ? Math.floor(savedRecord) : 0;
 $('#storage-notice').hidden = storageAvailable;
-const audio = new GameAudio(settings.sound);
+const audio = new GameAudio(settings.sound, settings.music);
 let game = createGame(20260918);
 let joystick = null;
 let accumulator = 0;
@@ -61,13 +64,23 @@ function refreshSound() {
   $('#sound').setAttribute('aria-pressed', String(settings.sound));
   $('#sound').setAttribute('aria-label', settings.sound ? 'Mykistä äänet' : 'Ota äänet käyttöön');
 }
+function refreshMusic() {
+  $('#music').setAttribute('aria-pressed', String(settings.music));
+  $('#music').setAttribute('aria-label', settings.music ? 'Music off' : 'Music on');
+  $('#music').setAttribute('title', settings.music ? 'Music off' : 'Music on');
+}
 function setTheme(theme) {
   settings.theme = theme;
   frame.dataset.theme = theme;
+  document.body.dataset.theme = theme;
   document.querySelectorAll('[data-theme-choice]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.themeChoice === theme));
   });
-  $('#mode-label').textContent = { meadow: 'NIITTY', kvlt: 'KVLTIST', winter: 'KVLTIST WINTER' }[theme];
+  $('#mode-label').textContent = { meadow: 'NIITTY', autumn: 'RUSKA', winter: 'TALVI' }[theme];
+  const surfaceColor = { meadow: '#e6edda', autumn: '#efdbb6', kvlt: '#242034', winter: '#101d30' }[theme];
+  document.documentElement.style.backgroundColor = surfaceColor;
+  $('meta[name="theme-color"]').setAttribute('content', surfaceColor);
+  audio.setScene(theme, game.phase);
 }
 function clearInput() {
   keys.clear();
@@ -82,8 +95,9 @@ function processEvents() {
       clearInput();
       announce('Jalka jäi ansaan. Napauta neljä kertaa tai paina nuolinäppäimiä tai välilyöntiä neljästi.');
     }
-    if (event.type === 'satsuma') announce(`${game.bubble}. Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} satsuman kombo!` : ''}`);
+    if (event.type === 'satsuma') announce(`${game.bubble} Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} satsuman kombo!` : ''}`);
     if (event.type === 'release') announce('Vapaa!');
+    if (event.type === 'slip') announce('Hyi kakkaa');
     if (event.type === 'over') finishRound();
   }
 }
@@ -153,6 +167,7 @@ function refreshUi() {
     overPanel.hidden = game.phase !== 'over';
     frame.dataset.phase = game.phase;
     $('#pause').disabled = game.phase !== 'playing';
+    audio.setScene(settings.theme, game.phase);
     lastPhase = game.phase;
   }
   const trapped = game.phase === 'playing' && game.player.state === 'trapped';
@@ -181,8 +196,15 @@ $('#sound').addEventListener('click', () => {
   saveSettings();
   if (game.phase === 'playing') canvas.focus({ preventScroll: true });
 });
+$('#music').addEventListener('click', () => {
+  settings.music = !settings.music;
+  audio.setMusicEnabled(settings.music);
+  refreshMusic();
+  saveSettings();
+  if (game.phase === 'playing') canvas.focus({ preventScroll: true });
+});
 document.querySelectorAll('[data-theme-choice]').forEach((button) => {
-  button.addEventListener('click', () => { setTheme(button.dataset.themeChoice); saveSettings(); });
+  button.addEventListener('click', () => { setTheme(button.dataset.themeChoice); audio.unlock(); saveSettings(); });
 });
 
 function pointFromEvent(event) {
@@ -312,6 +334,7 @@ function loop(milliseconds) {
 }
 setTheme(settings.theme);
 refreshSound();
+refreshMusic();
 refreshBest();
 refreshControlHint();
 refreshUi();
