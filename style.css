@@ -28,8 +28,8 @@
 .game-frame[data-theme="winter"] .theme-select button[aria-pressed="true"]{background:#4b6f8f;border-color:#9abdd4}
 .game-frame[data-theme="winter"] .primary-button{background:#aacde2;border-color:#34495e;box-shadow:0 4px #34495e}
 .game-frame[data-theme="winter"] .dialog-card{background:#182a40;border-color:#7894aa}
-@media(max-height:600px) and (orientation:landscape){.menu{padding-top:max(25cqw,48px)}.menu h1{margin-bottom:10px}.theme-select{margin-bottom:8px}.theme-select button{padding:2px 1px;gap:2px;font-size:8px}.theme-select button>span{font-size:12px}.record-line{margin-top:10px}.start-tip{white-space:nowrap}.start-tip>span{display:none}}
-@media(max-height:360px) and (orientation:landscape){.menu h1{margin-bottom:6px}.theme-select{padding:2px;gap:1px;margin-bottom:6px}.theme-select button{padding:2px 0}.theme-select button>span{display:none}.menu .primary-button{padding:5px 6px;gap:4px;font-size:9px;line-height:1.1}.menu .primary-button>span{font-size:14px}.record-line{margin-top:6px}.record-line strong{font-size:8px}}
+@media(max-height:600px) and (orientation:landscape){.menu h1{margin-bottom:10px}.theme-select{margin-bottom:8px}.theme-select button{padding:2px 1px;gap:2px;font-size:8px}.theme-select button>span{font-size:12px}.record-line{margin-top:10px}.start-tip{white-space:nowrap}.start-tip>span{display:none}}
+
 .combo-badge{margin-top:7px;padding:4px 7px;border:1px solid #805139;border-radius:3px;background:#ffe6a6;color:#644532;font:800 11px/1.3 ui-monospace,monospace;letter-spacing:.5px;text-shadow:none;box-shadow:2px 2px #5e42232b}
 .game-frame[data-theme="kvlt"] .combo-badge{color:#f7d4a8;background:#4a303b;border-color:#bd8b88}
 .game-frame[data-theme="winter"] .combo-badge{color:#e1f3fc;background:#21394e;border-color:#83b7d5}
@@ -66,7 +66,7 @@ body:is([data-theme="kvlt"],[data-theme="winter"]) .update-notice{background:var
 #music[aria-pressed="false"]{opacity:.55}
 #music[aria-pressed="false"]::after{content:"";position:absolute;width:22px;height:2px;transform:rotate(-45deg);background:currentColor}
 /* Menu help reuses the desktop guides inside a native, focus-trapped dialog. */
-.menu{padding-top:15%}
+.menu{padding-top:30%}
 .menu .record-line{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;line-height:1.5;margin:16px 0 6px}
 .menu .record-line strong{margin:0;font-size:16px}
 .help-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:7px 12px;border:1px solid currentColor;border-radius:5px;background:#fffcf49c;color:#41583d;font-size:12px;font-weight:650}
@@ -101,3 +101,6 @@ body:is([data-theme="kvlt"],[data-theme="winter"]) .update-notice{background:var
 .game-frame[data-theme="winter"] .help-dialog{background:#182a40}
 #resume{font-size:18px;line-height:1.3}
 @container(max-width:290px){.menu h1{margin-bottom:12px}.theme-select{margin-bottom:10px}.menu .primary-button{padding:9px 12px}.menu .record-line{margin-top:12px;margin-bottom:4px}.help-button{min-height:34px;padding:6px 10px}.start-tip{bottom:4%}}
+@container(max-width:340px){.menu{padding-top:max(20cqw,48px)}.menu h1{margin-bottom:12px}}
+@media(max-height:600px) and (orientation:landscape){.menu{padding-top:max(25cqw,38px)}}
+@media(max-height:400px) and (orientation:landscape){.menu h1{margin-bottom:6px}.theme-select{padding:2px;gap:1px;margin-bottom:6px}.theme-select button{padding:2px 0;gap:1px}.theme-select button>span{display:none}.menu .primary-button{padding:5px 6px;gap:4px;font-size:9px;line-height:1.1}.menu .primary-button>span{font-size:14px}.menu .record-line{font-size:8px;line-height:1.2;margin:6px 0 4px}.menu .record-line strong{font-size:10px}.menu .help-button{min-height:24px;padding:4px 6px;font-size:9px;gap:4px}.menu .help-button svg{width:12px;height:12px}.start-tip{display:none}}
