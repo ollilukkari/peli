@@ -275,6 +275,23 @@ test('seed and input history reproduce the same game exactly', () => {
   assert.notDeepEqual(createGame(0).platforms, createGame(1).platforms);
 });
 
+test('the starting ledge stays centered and generated widths use the ten-percent narrower bounds', () => {
+  for (let seed = 0; seed < 200; seed++) {
+    const game = createGame(seed);
+    const initial = game.platforms[0];
+    assert.ok(Math.abs(initial.width - 280.8) < 1e-9);
+    assert.equal(initial.x + initial.width / 2, WIDTH / 2);
+    for (const platform of game.platforms.slice(1)) {
+      const opening = platform.id <= 3;
+      assert.ok(platform.width >= (opening ? 133.2 : 93.6) - 1e-9);
+      assert.ok(platform.width <= (opening ? 162 : 176.4));
+      assert.ok(platform.safeWidth > 0);
+      assert.ok(platform.safeX - platform.safeWidth / 2 >= platform.x);
+      assert.ok(platform.safeX + platform.safeWidth / 2 <= platform.x + platform.width);
+    }
+  }
+});
+
 test('many generated routes have reachable gaps and an unobstructed landing patch', () => {
   const jumpHeight = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
   for (let seed = 0; seed < 1500; seed += 1) {
@@ -295,7 +312,7 @@ test('many generated routes have reachable gaps and an unobstructed landing patc
         + previous.safeWidth / 2 - next.safeWidth / 2;
       assert.ok(requiredDistance <= conservativeDistance - 9.999);
       assert.ok(next.x >= 0 && next.x + next.width <= WIDTH);
-      assert.ok(next.safeWidth >= 16);
+      assert.ok(next.safeWidth >= 5.6 - 1e-9);
       if (next.item) {
         const distance = Math.abs(next.item.x - next.safeX);
         assert.ok(distance > next.safeWidth / 2 + PHYSICS.playerWidth / 2 + PHYSICS.itemHalfWidth);
@@ -348,8 +365,8 @@ test('routes visibly vary their heights, widths and left-to-right positions', ()
   const fraction = (values, predicate) => values.filter(predicate).length / values.length;
   assert.ok(fraction(rises, (rise) => rise <= 72.001) > 0.2);
   assert.ok(fraction(rises, (rise) => rise > 105) > 0.15);
-  assert.ok(fraction(widths, (width) => width < 120) > 0.12);
-  assert.ok(fraction(widths, (width) => width > 180) > 0.12);
+  assert.ok(fraction(widths, (width) => width < 108) > 0.12);
+  assert.ok(fraction(widths, (width) => width > 162) > 0.12);
   assert.ok(fraction(shifts, (shift) => shift > 80) > 0.35);
   assert.ok(fraction(centers, (center) => center < 105) > 0.15);
   assert.ok(fraction(centers, (center) => center > 255) > 0.15);

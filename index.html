@@ -35,9 +35,9 @@
         <div class="game-frame" id="game-frame" data-phase="ready" data-theme="meadow">
           <canvas id="game" width="360" height="640" tabindex="0" aria-label="Pystysuuntainen pomppupeli. Ohjaa vasemmalla ja oikealla nuolella tai vedä sormea pelialueen alemmalla puoliskolla. Vapauta ansasta neljällä erillisellä napautuksella, nuolinäppäimen tai välilyönnin painalluksella."></canvas>
           <div class="hud">
-            <div class="scorebox"><span class="hud-label">MATKA</span><strong><span id="score">0</span><small> m</small></strong><span id="combo" class="combo-badge" hidden></span></div>
+            <div class="scorebox"><strong><span id="score">0</span></strong><span id="combo" class="combo-badge" hidden></span></div>
             <div class="hud-actions">
-              <button id="sound" class="icon-button" aria-label="Mykistä äänet" aria-pressed="true" title="Äänet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 8c2 2 2 6 0 8M20 5c4 4 4 10 0 14"/></svg></button>
+              <button id="sound" class="icon-button" aria-label="Mykistä ääniefektit" aria-pressed="true" title="Mykistä ääniefektit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 8c2 2 2 6 0 8M20 5c4 4 4 10 0 14"/></svg></button>
               <button id="music" class="icon-button" aria-label="Music off" aria-pressed="true" title="Music off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V6l11-2v11M9 9l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/></svg></button>
               <button id="pause" class="icon-button" aria-label="Keskeytä peli" title="Tauko (Esc)" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
             </div>
@@ -60,12 +60,18 @@
               </div>
               <button class="primary-button" id="start">Pompitaan! <span aria-hidden="true">↗</span></button>
               <p class="record-line">OMA ENNÄTYS <strong><span class="best-score">0</span> m</strong></p>
+              <button class="help-button" id="help-open" aria-haspopup="dialog" aria-controls="help-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v14M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1M12 6c3-2 6-2 9-1v14c-3-1-6-1-9 1M6 8h3M6 11h3M15 8h3M15 11h3"/></svg>Pelin ohjeet</button>
             </div>
             <div class="start-tip" id="start-tip">Kosketa ja vedä alaosassa <span aria-hidden="true">↔</span></div>
           </div>
 
+          <dialog class="help-dialog" id="help-dialog" aria-labelledby="help-title">
+            <header class="help-heading"><h2 id="help-title">Pelin ohjeet</h2><button id="help-close" class="help-close" aria-label="Sulje pelin ohjeet">Sulje <span aria-hidden="true">×</span></button></header>
+            <div id="help-content" class="help-content"></div>
+          </dialog>
+
           <div class="overlay dialog-overlay" id="pause-panel" hidden>
-            <div class="dialog-card"><h2>Tauko</h2><button class="primary-button" id="resume">Jatka pomppimista <span aria-hidden="true">↗</span></button><button class="text-button" id="back-menu">Takaisin alkuun</button></div>
+            <div class="dialog-card"><h2>Pause</h2><button class="primary-button" id="resume">Jatka pomppimista <span aria-hidden="true">↗</span></button><button class="text-button" id="back-menu">Palaa päävalikkoon</button></div>
           </div>
           <div class="overlay dialog-overlay" id="over-panel" hidden>
             <div class="dialog-card"><span class="pixel-tag" id="over-tag">HYVÄ POMPPU!</span><h2>RIP</h2><div class="result"><strong id="final-score">0</strong><span>METRIÄ</span></div><p>OMA ENNÄTYS <strong><span class="best-score">0</span> m</strong></p><button class="primary-button" id="restart">Ponpi lisää <span aria-hidden="true">↗</span></button><button class="text-button" id="change-world">Vaihda maailmaa</button></div>

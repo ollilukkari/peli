@@ -11,6 +11,9 @@ const menu = $('#menu');
 const pausedPanel = $('#pause-panel');
 const overPanel = $('#over-panel');
 const trapNotice = $('#trap-notice');
+const helpDialog = $('#help-dialog');
+// Desktop guides are the single source for the phone's scrollable help.
+$('#help-content').append($('.intro').cloneNode(true), $('.field-guide').cloneNode(true));
 const keys = new Set();
 const tapKeys = new Set();
 const downPointers = new Set();
@@ -62,7 +65,9 @@ function saveSettings() { writeStorage(settingsKey, JSON.stringify(settings)); }
 function refreshBest() { document.querySelectorAll('.best-score').forEach((element) => { element.textContent = best; }); }
 function refreshSound() {
   $('#sound').setAttribute('aria-pressed', String(settings.sound));
-  $('#sound').setAttribute('aria-label', settings.sound ? 'Mykistä äänet' : 'Ota äänet käyttöön');
+  const label = settings.sound ? 'Mykistä ääniefektit' : 'Ota ääniefektit käyttöön';
+  $('#sound').setAttribute('aria-label', label);
+  $('#sound').setAttribute('title', label);
 }
 function refreshMusic() {
   $('#music').setAttribute('aria-pressed', String(settings.music));
@@ -189,6 +194,18 @@ $('#pause').addEventListener('click', togglePause);
 $('#resume').addEventListener('click', togglePause);
 $('#back-menu').addEventListener('click', showMenu);
 $('#change-world').addEventListener('click', showMenu);
+$('#help-open').addEventListener('click', () => {
+  if (game.phase !== 'ready' || helpDialog.open) return;
+  helpDialog.showModal();
+  $('#help-content').scrollTop = 0;
+  $('#help-close').focus({ preventScroll: true });
+});
+$('#help-close').addEventListener('click', () => helpDialog.close());
+helpDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  helpDialog.close();
+});
+helpDialog.addEventListener('close', () => $('#help-open').focus({ preventScroll: true }));
 $('#sound').addEventListener('click', () => {
   settings.sound = !settings.sound;
   audio.setEnabled(settings.sound);
