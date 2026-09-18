@@ -257,6 +257,92 @@ function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
   ctx.globalAlpha = 1;
 }
 
+function drawFern(ctx, x, y) {
+  box(ctx, '#749276', x - 1, y - 25, 2, 27);
+  for (let row = 0; row < 5; row++) {
+    const width = 3 + row * 2;
+    const top = y - 23 + row * 4;
+    box(ctx, '#7b9c7d', x - width, top, width - 1, 2);
+    box(ctx, '#8caa85', x + 1, top - 1, width, 2);
+    box(ctx, '#7b9c7d', x - width, top - 2, 2, 2);
+    box(ctx, '#8caa85', x + width - 1, top - 3, 2, 2);
+  }
+  shape(ctx, '#829e7d', [[x, y], [x - 13, y - 12], [x - 17, y - 12], [x - 10, y - 9], [x - 8, y - 4]]);
+  shape(ctx, '#94ae8a', [[x, y], [x + 11, y - 13], [x + 15, y - 15], [x + 13, y - 9], [x + 8, y - 5]]);
+}
+
+function drawAutumnBush(ctx, x, y) {
+  box(ctx, '#917251', x - 1, y - 17, 3, 20);
+  pixelOval(ctx, '#b08058', x - 16, y - 19, 31, 18, 3);
+  pixelOval(ctx, '#c09162', x - 10, y - 27, 18, 18, 3);
+  pixelOval(ctx, '#b27c60', x + 2, y - 21, 16, 15, 3);
+  box(ctx, '#d0ab73', x - 9, y - 23, 7, 3);
+  box(ctx, '#cf9a63', x + 5, y - 17, 5, 3);
+  box(ctx, '#c69c69', x - 12, y - 12, 6, 3);
+}
+
+function drawPumpkin(ctx, x, y) {
+  // A low, muted silhouette rooted in the scenery, unlike the bright satsumas.
+  box(ctx, '#7c815d', x - 1, y - 20, 3, 7);
+  box(ctx, '#879269', x + 1, y - 20, 5, 3);
+  pixelOval(ctx, '#af794f', x - 12, y - 15, 25, 18, 3);
+  pixelOval(ctx, '#c48e5d', x - 8, y - 16, 16, 19, 3);
+  box(ctx, '#ac754f', x - 5, y - 12, 2, 14);
+  box(ctx, '#b17b51', x + 4, y - 12, 2, 14);
+  box(ctx, '#d0a373', x - 1, y - 12, 3, 6);
+}
+
+function drawSnowman(ctx, x, y) {
+  box(ctx, '#7d93a1', x - 19, y - 14, 10, 2);
+  box(ctx, '#7d93a1', x + 10, y - 17, 9, 2);
+  box(ctx, '#7d93a1', x - 18, y - 18, 2, 5);
+  box(ctx, '#7d93a1', x + 15, y - 21, 2, 5);
+  pixelOval(ctx, '#8da5b5', x - 12, y - 16, 25, 20, 4);
+  pixelOval(ctx, '#a9bfca', x - 9, y - 17, 19, 18, 3);
+  pixelOval(ctx, '#a9bfca', x - 8, y - 31, 17, 16, 3);
+  box(ctx, '#c0d0d7', x - 4, y - 29, 7, 3);
+  box(ctx, '#607b91', x - 5, y - 25, 2, 2);
+  box(ctx, '#607b91', x + 3, y - 25, 2, 2);
+  box(ctx, '#bb9972', x, y - 22, 6, 2);
+  box(ctx, '#8499b0', x - 8, y - 17, 17, 3);
+  box(ctx, '#8499b0', x + 5, y - 14, 3, 6);
+  box(ctx, '#738ca0', x - 1, y - 10, 2, 2);
+  box(ctx, '#738ca0', x - 1, y - 4, 2, 2);
+}
+
+function drawSnowLantern(ctx, x, y) {
+  const opacity = ctx.globalAlpha;
+  for (const [size, alpha] of [[70, .055], [48, .09], [30, .15]]) {
+    ctx.globalAlpha = opacity * alpha;
+    pixelOval(ctx, '#ffda96', x - size / 2, y - 12 - size / 2, size, size, 5);
+  }
+  ctx.globalAlpha = opacity;
+  pixelOval(ctx, '#a2b6bf', x - 13, y - 15, 26, 18, 3);
+  pixelOval(ctx, '#b9c9cd', x - 9, y - 22, 18, 13, 3);
+  pixelOval(ctx, '#c8d3d2', x - 5, y - 27, 10, 9, 2);
+  pixelOval(ctx, '#c6b694', x - 6, y - 12, 12, 13, 2);
+  box(ctx, '#edce93', x - 3, y - 9, 6, 10);
+  box(ctx, '#ffe4a8', x - 1, y - 7, 2, 6);
+  box(ctx, '#cfdbdc', x - 10, y - 11, 4, 3);
+  box(ctx, '#cfdbdc', x + 6, y - 11, 4, 3);
+}
+
+function drawPlatformScenery(ctx, platform, y, theme) {
+  if (theme === 'kvlt') return;
+  const count = platform.width > 155 ? 2 : 1;
+  ctx.save();
+  ctx.globalAlpha = theme === 'winter' ? .75 : .68;
+  for (let index = 0; index < count; index++) {
+    const variant = (platform.id + index) % 2;
+    const fraction = count === 2 ? (index === 0 ? .18 : .82) : variant ? .7 : .3;
+    const x = platform.x + 19 + Math.max(0, platform.width - 38) * fraction;
+    if (theme === 'meadow') drawFern(ctx, x, y);
+    else if (theme === 'autumn') (variant ? drawPumpkin : drawAutumnBush)(ctx, x, y);
+    else (variant ? drawSnowLantern : drawSnowman)(ctx, x, y);
+  }
+  ctx.restore();
+}
+
 function drawPlatform(ctx, platform, screenY, palette, theme) {
   const x = Math.round(platform.x);
   const y = Math.round(screenY);
@@ -757,6 +843,13 @@ export function drawGame(ctx, game, options = {}) {
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   drawBackground(ctx, game, { theme, time: visualTime, reducedMotion }, palette);
+
+  // Scenery sits behind every landing surface and item and never changes the model.
+  for (const platform of game.platforms) {
+    const y = screenY(platform.y);
+    if (y < -50 || y > HEIGHT + 70) continue;
+    drawPlatformScenery(ctx, platform, y, theme);
+  }
 
   for (const platform of game.platforms) {
     const y = screenY(platform.y);

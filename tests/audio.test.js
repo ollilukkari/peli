@@ -27,6 +27,24 @@ function application({ enabled = true, musicEnabled = true, initialState = 'runn
   const errors = [];
   const contexts = [];
   const elements = [];
+  const timers = new Map();
+  let timerTime = 0;
+  let nextTimer = 1;
+  const advance = (seconds) => {
+    const target = timerTime + seconds * 1000;
+    const moveClock = (time) => {
+      if (contexts[0]?.state === 'running') contexts[0].currentTime += (time - timerTime) / 1000;
+      timerTime = time;
+    };
+    while (true) {
+      const next = [...timers].filter(([, timer]) => timer.at <= target).sort((a, b) => a[1].at - b[1].at)[0];
+      if (!next) break;
+      moveClock(next[1].at);
+      timers.delete(next[0]);
+      next[1].callback();
+    }
+    moveClock(target);
+  };
 
   class Events {
     constructor() { this.listeners = new Map(); }
@@ -75,10 +93,31 @@ function application({ enabled = true, musicEnabled = true, initialState = 'runn
   }
 
   class Parameter {
-    constructor(value = 1) { this.value = value; this.events = []; }
-    setValueAtTime(value, time) { this.value = value; this.events.push(['set', value, time]); }
-    linearRampToValueAtTime(value, time) { this.events.push(['linear', value, time]); }
-    exponentialRampToValueAtTime(value, time) { this.events.push(['exponential', value, time]); }
+    constructor(value = 1) { this.initial = value; this.events = []; this.automation = []; }
+    get value() {
+      const now = contexts[0]?.currentTime ?? 0;
+      let previous = { value: this.initial, time: 0 };
+      for (const event of this.automation) {
+        if (event.time > now) {
+          if (event.type === 'linear') return previous.value
+            + (event.value - previous.value) * (now - previous.time) / (event.time - previous.time);
+          return previous.value;
+        }
+        previous = event;
+      }
+      return previous.value;
+    }
+    record(type, value, time) {
+      this.events.push([type, value, time]);
+      this.automation.push({ type, value, time });
+    }
+    setValueAtTime(value, time) { this.record('set', value, time); }
+    linearRampToValueAtTime(value, time) { this.record('linear', value, time); }
+    exponentialRampToValueAtTime(value, time) { this.record('exponential', value, time); }
+    cancelScheduledValues(time) {
+      this.events.push(['cancel', time]);
+      this.automation = this.automation.filter((event) => event.time < time);
+    }
   }
 
   class Node {
@@ -138,18 +177,26 @@ function application({ enabled = true, musicEnabled = true, initialState = 'runn
   const sandbox = vm.createContext({
     AudioContext: Context, Audio: Media, URL, moduleUrl,
     console: { error: (...args) => errors.push(args) },
+    setTimeout(callback, delay) {
+      const id = nextTimer++;
+      timers.set(id, { at: timerTime + delay, callback });
+      return id;
+    },
+    clearTimeout: (id) => timers.delete(id),
   });
   vm.runInContext(audioSource, sandbox, { filename: 'src/audio.js' });
   const GameAudio = vm.runInContext('GameAudio', sandbox);
   const audio = new GameAudio(enabled, musicEnabled);
   return {
-    audio, contexts, elements, errors,
+    audio, contexts, elements, errors, advance,
+    get pendingTimers() { return timers.size; },
     get context() { return contexts[0]; },
     get media() { return elements[0]; },
     async start(theme = 'meadow', phase = 'ready') {
       audio.setScene(theme, phase);
       audio.unlock();
       await flush();
+      if (!delayedPlay) advance(.2);
     },
   };
 }
@@ -167,8 +214,9 @@ test('the first gesture starts default menu music with one streaming element and
   assert.equal(app.media.plays.length, 1);
   assert.equal(app.context.mediaSources[0].element, app.media);
   assert.equal(app.context.mediaSources[0].connections[0], app.audio.musicGain);
-  assert.equal(app.audio.musicGain.connections[0], app.audio.master);
-  assert.equal(app.audio.master.connections[0], app.context.destination);
+  assert.equal(app.audio.musicGain.connections[0], app.context.destination);
+  assert.equal(app.audio.effectsGain.connections[0], app.context.destination);
+  app.advance(.18);
   assert.equal(app.audio.musicGain.gain.value, 0.3);
 });
 
@@ -205,16 +253,18 @@ test('ready to playing and repeated notifications preserve position without dupl
   assert.equal(app.context.mediaSources.length, 1);
 });
 
-test('menu theme changes immediately select each own track and reset its position', async () => {
+test('menu theme changes fade to each own track and reset its position', async () => {
   const app = application();
   await app.start();
   for (const [theme, track] of [['winter', winter], ['autumn', autumn], ['meadow', summer]]) {
     app.media.currentTime = 22;
     app.audio.setScene(theme, 'ready');
+    app.advance(.12);
     assert.equal(app.media.src, track);
     assert.equal(app.media.currentTime, 0);
     assert.equal(app.media.plays.at(-1).src, track);
     await flush();
+    app.advance(.18);
   }
   assert.deepEqual(app.media.loads, [summer, winter, autumn, summer]);
   assert.equal(app.elements.length, 1);
@@ -230,6 +280,7 @@ test('Kvlt shares the Winter track without restarting it and unknown themes have
   assert.equal(app.media.currentTime, 8);
   assert.equal(app.media.plays.length, 1);
   app.audio.setScene('unknown', 'ready');
+  app.advance(.12);
   assert.equal(app.media.src, '');
   assert.equal(app.media.currentTime, 0);
   assert.equal(app.media.paused, true);
@@ -300,8 +351,8 @@ test('pending play and context resume survive game over and restart without extr
   }
 });
 
-test('muting at game over preserves the position even when an earlier play completes later', async () => {
-  for (const control of ['setEnabled', 'setMusicEnabled']) {
+test('music mute at game over preserves position even when an earlier play completes later', async () => {
+  for (const control of ['setMusicEnabled']) {
     const app = application({ delayedPlay: true });
     await app.start('autumn', 'playing');
     app.media.currentTime = 24.5;
@@ -324,7 +375,6 @@ test('muting at game over preserves the position even when an earlier play compl
 });
 
 const stopTransitions = [
-  ['master mute', (audio) => audio.setEnabled(false)],
   ['music mute', (audio) => audio.setMusicEnabled(false)],
   ['pause', (audio) => audio.setScene('meadow', 'paused')],
   ['unknown theme', (audio) => audio.setScene('unknown', 'ready')],
@@ -377,37 +427,51 @@ test('several stale play promises cannot pause or replace the latest selected so
   assert.equal(app.elements.length, 1);
 });
 
-test('master mute gates existing SFX and music; music mute preserves SFX and its own setting', async () => {
+test('effects mute gates existing SFX independently while music mute preserves enabled SFX', async () => {
   const app = application();
   await app.start();
   app.audio.play('over', 'meadow');
   const oscillator = app.context.oscillators[0];
   const sfxGain = oscillator.connections[0];
-  assert.equal(sfxGain.connections[0], app.audio.master);
+  assert.equal(sfxGain.connections[0], app.audio.effectsGain);
+  assert.equal(app.audio.effectsGain.connections[0], app.context.destination);
+  assert.equal(app.audio.musicGain.connections[0], app.context.destination);
   app.media.currentTime = 12.5;
+  const musicEvents = app.audio.musicGain.gain.events.length;
+  app.audio.setEnabled(false);
+  assert.equal(app.audio.effectsGain.gain.value, 0);
+  assert.equal(app.media.paused, false);
+  assert.equal(app.media.currentTime, 12.5);
+  assert.equal(app.media.plays.length, 1);
+  assert.equal(app.audio.musicGain.gain.events.length, musicEvents);
+  app.audio.play('bounce');
+  assert.equal(app.context.oscillators.length, 1);
+  app.audio.setEnabled(true);
   app.audio.setMusicEnabled(false);
   assert.equal(app.media.paused, true);
   assert.equal(app.media.currentTime, 12.5);
   assert.equal(app.audio.musicGain.gain.value, 0);
-  assert.equal(app.audio.master.gain.value, 1);
+  assert.equal(app.audio.effectsGain.gain.value, 1);
   app.audio.play('bounce');
   assert.equal(app.context.oscillators.length, 2);
   app.audio.setEnabled(false);
-  assert.equal(app.audio.master.gain.value, 0);
+  assert.equal(app.audio.effectsGain.gain.value, 0);
   app.audio.play('bounce');
   assert.equal(app.context.oscillators.length, 2);
   app.audio.setEnabled(true);
-  assert.equal(app.audio.master.gain.value, 1);
-  assert.equal(app.media.paused, true, 'master unmute respects the separate music preference');
+  assert.equal(app.audio.effectsGain.gain.value, 1);
+  assert.equal(app.media.paused, true, 'effects unmute respects the separate music preference');
+  app.audio.setEnabled(false);
   app.audio.setMusicEnabled(true);
   assert.equal(app.media.plays.at(-1).time, 12.5);
+  assert.equal(app.audio.effectsGain.gain.value, 0, 'music unmute leaves effects muted');
   oscillator.onended();
   assert.equal(oscillator.disconnected, true);
   assert.equal(sfxGain.disconnected, true);
 });
 
-test('initially disabled sound performs no work, while initially disabled music still allows SFX', async () => {
-  const silent = application({ enabled: false });
+test('both disabled creates no audio, and either category can start independently', async () => {
+  const silent = application({ enabled: false, musicEnabled: false });
   await silent.start();
   assert.equal(silent.contexts.length, 0);
   assert.equal(silent.elements.length, 0);
@@ -416,6 +480,32 @@ test('initially disabled sound performs no work, while initially disabled music 
   assert.equal(sfxOnly.media.plays.length, 0);
   sfxOnly.audio.play('gull');
   assert.equal(sfxOnly.context.oscillators.length, 1);
+  const musicOnly = application({ enabled: false });
+  await musicOnly.start();
+  assert.equal(musicOnly.media.plays.length, 1);
+  assert.equal(musicOnly.media.paused, false);
+  assert.equal(musicOnly.audio.effectsGain.gain.value, 0);
+  musicOnly.audio.play('gull');
+  assert.equal(musicOnly.context.oscillators.length, 0);
+  silent.audio.setMusicEnabled(true);
+  assert.equal(silent.media.plays.length, 1);
+  assert.equal(silent.audio.effectsGain.gain.value, 0);
+});
+
+test('effects mute does not cancel a pending music play or context resume', async () => {
+  for (const initialState of ['running', 'suspended']) {
+    const app = application({ initialState, delayedPlay: true });
+    await app.start();
+    app.audio.setEnabled(false);
+    app.media.finishPlay();
+    if (initialState === 'suspended') app.context.finishResume();
+    await flush();
+    app.advance(.18);
+    assert.equal(app.media.paused, false);
+    assert.equal(app.media.plays.length, 1);
+    assert.equal(app.audio.musicGain.gain.value, .3);
+    assert.equal(app.audio.effectsGain.gain.value, 0);
+  }
 });
 
 test('suspension and interruption pause streaming and preserve the next unlock position', async () => {
@@ -493,4 +583,132 @@ test('autoplay rejection waits for another gesture instead of retrying on scene 
   app.media.finishPlay(1);
   await flush();
   assert.equal(app.media.paused, false);
+});
+
+test('a season change fades out before swapping source and fades in after playback starts', async () => {
+  const app = application();
+  await app.start();
+  app.media.currentTime = 15;
+  app.audio.setScene('winter', 'ready');
+  assert.equal(app.media.src, summer, 'the old song remains loaded during its release');
+  app.advance(.06);
+  assert.ok(Math.abs(app.audio.musicGain.gain.value - .15) < 1e-9);
+  const events = app.audio.musicGain.gain.events.length;
+  app.audio.setScene('winter', 'playing');
+  app.audio.unlock();
+  assert.equal(app.audio.musicGain.gain.events.length, events, 'notifications must not replace the release envelope');
+  assert.equal(app.pendingTimers, 1);
+  app.advance(.06);
+  assert.equal(app.media.src, winter);
+  assert.equal(app.media.currentTime, 0);
+  assert.equal(app.audio.musicGain.gain.value, 0);
+  await flush();
+  app.advance(.09);
+  assert.ok(Math.abs(app.audio.musicGain.gain.value - .15) < 1e-9);
+  const attackEvents = app.audio.musicGain.gain.events.length;
+  app.audio.setScene('winter', 'over');
+  app.audio.unlock();
+  app.audio.setEnabled(false);
+  app.audio.setEnabled(true);
+  assert.equal(app.audio.musicGain.gain.events.length, attackEvents, 'notifications must not restart the attack envelope');
+  app.advance(.09);
+  assert.equal(app.audio.musicGain.gain.value, .3);
+  assert.equal(app.media.plays.length, 2);
+});
+
+test('rapid season choices load only the final song after one release', async () => {
+  const app = application();
+  await app.start();
+  app.audio.setScene('winter', 'ready');
+  app.advance(.06);
+  app.audio.setScene('autumn', 'ready');
+  assert.equal(app.pendingTimers, 1);
+  app.advance(.06);
+  await flush();
+  app.advance(.18);
+  assert.equal(app.media.src, autumn);
+  assert.deepEqual(app.media.loads, [summer, autumn]);
+  assert.equal(app.media.plays.length, 2);
+  assert.equal(app.elements.length, 1);
+  assert.equal(app.context.mediaSources.length, 1);
+  assert.equal(app.pendingTimers, 0);
+});
+
+test('returning to the current season during release cancels the swap without restarting music', async () => {
+  const app = application();
+  await app.start();
+  app.media.currentTime = 11;
+  app.audio.setScene('winter', 'ready');
+  app.advance(.06);
+  app.audio.setScene('meadow', 'ready');
+  assert.equal(app.pendingTimers, 0);
+  assert.ok(Math.abs(app.audio.musicGain.gain.value - .15) < 1e-9, 'the new attack starts at the actual release level');
+  app.advance(.2);
+  assert.equal(app.audio.musicGain.gain.value, .3);
+  assert.equal(app.media.src, summer);
+  assert.equal(app.media.currentTime, 11);
+  assert.equal(app.media.plays.length, 1);
+  assert.deepEqual(app.media.loads, [summer]);
+});
+
+test('pause or music mute during release cancels the timer and cannot start a queued track', async () => {
+  for (const action of ['pause', 'mute', 'suspend']) {
+    const app = application();
+    await app.start();
+    app.audio.setScene('winter', 'ready');
+    app.advance(.06);
+    if (action === 'pause') app.audio.setScene('winter', 'paused');
+    if (action === 'mute') app.audio.setMusicEnabled(false);
+    if (action === 'suspend') app.context.changeState('suspended');
+    assert.equal(app.pendingTimers, 0);
+    assert.equal(app.media.paused, true);
+    assert.equal(app.audio.musicGain.gain.value, 0);
+    app.advance(.5);
+    await flush();
+    assert.equal(app.media.plays.length, 1);
+    assert.equal(app.media.src, winter, 'the next selected source is ready but remains silent');
+    if (action === 'pause') app.audio.setScene('winter', 'playing');
+    if (action === 'mute') app.audio.setMusicEnabled(true);
+    if (action === 'suspend') {
+      app.audio.unlock();
+      app.context.finishResume();
+    }
+    await flush();
+    app.advance(.18);
+    assert.equal(app.media.plays.length, 2);
+    assert.equal(app.media.plays.at(-1).src, winter);
+    assert.equal(app.audio.musicGain.gain.value, .3);
+  }
+});
+
+test('delayed new-track playback waits silently, and stale play results cannot fade in the wrong song', async () => {
+  const app = application({ delayedPlay: true });
+  await app.start();
+  app.media.finishPlay(0);
+  await flush();
+  app.advance(.18);
+  app.audio.setScene('winter', 'ready');
+  app.advance(.12);
+  assert.equal(app.media.src, winter);
+  assert.equal(app.media.plays.length, 2);
+  app.advance(.5);
+  app.audio.unlock();
+  assert.equal(app.audio.musicGain.gain.value, 0, 'loading cannot consume the attack envelope');
+  app.audio.setScene('autumn', 'ready');
+  assert.equal(app.media.src, autumn);
+  assert.equal(app.media.plays.length, 3);
+  const events = app.audio.musicGain.gain.events.length;
+  app.media.finishPlay(1);
+  await flush();
+  assert.equal(app.audio.musicGain.gain.events.length, events);
+  assert.equal(app.audio.musicGain.gain.value, 0);
+  app.media.finishPlay(2);
+  await flush();
+  app.advance(.09);
+  assert.ok(Math.abs(app.audio.musicGain.gain.value - .15) < 1e-9);
+  app.audio.setMusicEnabled(false);
+  assert.equal(app.audio.musicGain.gain.value, 0, 'mute immediately cancels a partially completed attack');
+  app.advance(.5);
+  assert.equal(app.media.paused, true);
+  assert.equal(app.audio.musicGain.gain.value, 0);
 });

@@ -29,6 +29,7 @@ export const PHYSICS = Object.freeze({
 
 const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!', 'Njömpsis!'];
 const NORMAL_HEIGHT = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
+const PLATFORM_WIDTH_SCALE = 0.9;
 const HALF_BUNNY = PHYSICS.playerWidth / 2;
 const SATSUMA_CLEARANCE = 72; // 38 px fruit + 27 px platform underside + breathing room.
 const GULL_MARGIN = 30;
@@ -63,7 +64,7 @@ function generatePlatforms(game) {
     const difficulty = clamp((game.generatedTopY - game.startY) / 12000, 0, 1);
     const id = ++game.generationIndex;
     const opening = id <= 3;
-    const width = opening ? 148 + random(game) * 32 : 104 + random(game) * (92 - difficulty * 12);
+    const width = (opening ? 148 + random(game) * 32 : 104 + random(game) * (92 - difficulty * 12)) * PLATFORM_WIDTH_SCALE;
     let rise = opening ? 64 + random(game) * 18 : 45 + random(game) * 75;
     const safeWidth = Math.min(PHYSICS.safeWidth, width - 88);
 
@@ -190,6 +191,7 @@ function moveGulls(game, previousTime) {
 
 export function createGame(seed = Date.now()) {
   const initialY = 100;
+  const initialWidth = (WIDTH - 48) * PLATFORM_WIDTH_SCALE;
   const game = {
     seed: seed >>> 0,
     randomState: seed >>> 0,
@@ -214,9 +216,9 @@ export function createGame(seed = Date.now()) {
     lastGullHit: null,
     platforms: [{
       id: 0,
-      x: 24,
+      x: (WIDTH - initialWidth) / 2,
       y: initialY,
-      width: WIDTH - 48,
+      width: initialWidth,
       item: null,
       safeX: WIDTH / 2,
       safeWidth: PHYSICS.safeWidth,

@@ -8,7 +8,7 @@ Linkillä jaettava yksinpeli puhelimen pystyasentoon. Sama pystysuuntainen pelia
 
 Valkoinen pupu pomppii automaattisesti laskeuduttuaan tasolle. Sivuseinät rajaavat liikkumisen. Tasot kulkevat ylhäältä alaspäin, ja pelialueen alareunan koskettaminen päättää kierroksen. Pisteitä saa etenemästä; oma ennätys tallennetaan samaan selaimeen.
 
-Pupu saa nousta tasojen läpi ja laskeutuu niiden päälle vain alaspäin liikkuessaan. Kamera seuraa korkeaa hyppyä. Vaikeus kasvaa vähitellen, mutta peräkkäisten tasojen perusreitti pidetään normaalihypyn ulottuvilla.
+Pupu saa nousta tasojen läpi ja laskeutuu niiden päälle vain alaspäin liikkuessaan. Kamera seuraa korkeaa hyppyä. Vaikeus kasvaa vähitellen, mutta peräkkäisten tasojen perusreitti pidetään normaalihypyn ulottuvilla. Tasot ovat noin 10 % aiempaa kapeampia myös aloitustasolla. Yläreunan pistemittari näyttää pelkän numeron ilman otsikkoa tai yksikköä.
 
 ## Ohjaus
 
@@ -36,15 +36,19 @@ Kolmannesta peräkkäisestä satsumasta alkaen jokainen satsuma tuo ruudulle het
 
 Kesä on kesäinen pikselimaailma. Ruska lisää sen rinnalle syksyn kultaiset ja ruosteenpunaiset puut, lehtipeitteiset tasot ja putoavat lehdet. Talvi (aiemmin Kvltist Winter) on sinimusta talviyö, jossa kuu valaisee lumisia tasoja. Alkuperäinen Kvltist-maailma on piilotettu valikosta ja säilytetty koodissa; sen aiempi tallennettu valinta avaa Talven. Kaikki teemat käyttävät samaa fysiikkaa, esineitä ja vaikeutta. Reunus ja pelin ympärillä oleva sivu noudattavat valitun maailman sävyjä; Talvessa myös ympäristö on tumma.
 
-Mukana ovat koodilla tuotetut tehosteäänet ja projektiin toimitetut taustamusiikit: Kesässä ja oletusvalikossa Summer Platformer, Ruskassa Kalm Mjörk ja Talvessa Frozen Minor — Reduced Low End. Valitun maailman musiikki vaihtuu heti päävalikossa ja jatkuu samasta kohdasta kierroksen alkaessa. Ensimmäinen toisto edellyttää käyttäjän painallusta selaimen ääniasetusten vuoksi. Tauko säilyttää kappaleen kohdan. Musiikki jatkuu myös RIP-ruudussa, uuden kierroksen alkaessa ja valikkoon palatessa. Kappale vaihtuu ja alkaa alusta vain valittua vuodenaikaa vaihdettaessa. Nuottipainike tauon vieressä mykistää vain musiikin (Music off / Music on); äänipainike mykistää kaikki äänet. Musiikkivalinta säilyy selaimessa. MP3-tiedostot sisältyvät offline-pakettiin ja toistuvat ilman ulkopuolisia palveluita. Puhekuplatekstit eivät tarkoita ääninäyttelyä.
+Mukana ovat koodilla tuotetut tehosteäänet ja projektiin toimitetut taustamusiikit: Kesässä ja oletusvalikossa Summer Platformer, Ruskassa Kalm Mjörk ja Talvessa Frozen Minor — Reduced Low End. Valitun maailman musiikki vaihtuu jo päävalikossa lyhyellä ulos- ja sisäänhäivytyksellä, jotta vaihto ei napsahda. Musiikki jatkuu samasta kohdasta kierroksen alkaessa. Ensimmäinen toisto edellyttää käyttäjän painallusta selaimen ääniasetusten vuoksi. Tauko säilyttää kappaleen kohdan. Musiikki jatkuu myös RIP-ruudussa, uuden kierroksen alkaessa ja valikkoon palatessa. Kappale vaihtuu ja alkaa alusta vain valittua vuodenaikaa vaihdettaessa. Nuottipainike tauon vieressä mykistää vain musiikin (Music off / Music on); ääniefektipainike mykistää vain tehosteäänet. Musiikin ja tehosteiden toisistaan riippumattomat asetukset säilyvät selaimessa. MP3-tiedostot sisältyvät offline-pakettiin ja toistuvat ilman ulkopuolisia palveluita. Puhekuplatekstit eivät tarkoita ääninäyttelyä.
 
-Pelin otsikko on isoilla kirjaimilla kolmella rivillä: PUPUN / POMPUTTELU / PELI. Aloituspainike on ”Pompitaan!”. Käyttöliittymässä säilytetään pelaamiseen liittyvät ohjeet ja karsitaan koristeelliset alaotsikot ja iskulauseet. Tasojen sivusijainnit ja korkeuserot vaihtelevat selvästi; tavallisella hypyllä saavutettava perusreitti säilyy.
+Pelin otsikko on isoilla kirjaimilla kolmella rivillä: PUPUN / POMPUTTELU / PELI. Aloituspainike on ”Pompitaan!”. Aloitusruudun oma ennätys näkyy isompana, ja sen alla ”Pelin ohjeet” avaa suljettavan ja vieritettävän ohjeikkunan myös puhelimella. Ikkuna käyttää samoja ohjeita kuin tietokonenäkymä. Käyttöliittymässä säilytetään pelaamiseen liittyvät ohjeet ja karsitaan koristeelliset alaotsikot ja iskulauseet. Tasojen sivusijainnit ja korkeuserot vaihtelevat selvästi; tavallisella hypyllä saavutettava perusreitti säilyy.
 
 Kaikkien teemojen pupuilla on suuremmat, ilmeikkäät silmät. Kesän ja Ruskan vakiohahmo on pyöreä, lyhytvartaloinen pupu, jolla on sirot ripset. Ruskassa pupulla on syvälle vedetty tummanoranssi tupsupipo, jonka yläpuolella korvat näkyvät. Talvessa ja piilotetussa Kvltist-tilassa pupu käyttää samaa pyöreää muotoa ja söpöä corpse paintia ilman kaulapantaa: pyöreät silmänympärykset, kimaltavat silmät ja lyhyet maalivalumat. Myös kakoilla on corpse paint. Mahdollinen hahmoasun valikko jää myöhempään kehitykseen. Muut vartalomallit, piikkipantaluonnos ja aiempi piirto säilytetään [ulkoasuarkistossa](skins/README.md).
 
 Pupun korvat ja tassut liikkuvat, vartalo venyy noustessa ja litistyy lyhyesti laskeutuessa. Oikea maakosketus nostattaa niityllä pölyä, Kvltistissä tummaa savua ja Winterissä lunta. Visuaaliset tehosteet eivät muuta osuma-alueita tai fysiikkaa; tauko pysäyttää animaatiot ja selaimen vähennetyn liikkeen asetus huomioidaan.
 
 Pelin päättyessä otsikko on ”RIP” ja uusintapainikkeen teksti ”Ponpi lisää”.
+
+Kesän tasojen takana kasvaa saniaisia. Ruskassa taustakoristeina ovat ruskaiset pensaat ja kurpitsat; Talvessa lumiukot ja lämpimästi hohtavat lumilyhdyt. Koristeet ovat hillittyjä, piirtyvät kaikkien tasojen ja peliesineiden taakse eivätkä osallistu törmäyksiin.
+
+Taukovalikon otsikko on ”Pause”. ”Jatka pomppimista” käyttää suurempaa fonttia, ja valikkoon palataan ”Palaa päävalikkoon” -painikkeella.
 
 ## Tallennus ja jakelu
 

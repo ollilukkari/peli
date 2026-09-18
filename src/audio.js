@@ -3,6 +3,9 @@ const summerTrack = new URL('../assets/audio/summer-platformer.mp3', import.meta
 const autumnTrack = new URL('../assets/audio/kalm-mjork.mp3', import.meta.url).href;
 const winterTrack = new URL('../assets/audio/frozen-minor.mp3', import.meta.url).href;
 const musicTracks = { meadow: summerTrack, autumn: autumnTrack, winter: winterTrack, kvlt: winterTrack };
+const MUSIC_VOLUME = .3;
+const FADE_OUT = .12;
+const FADE_IN = .18;
 
 export class GameAudio {
   constructor(enabled = true, musicEnabled = true) {
@@ -10,7 +13,7 @@ export class GameAudio {
     this.musicEnabled = musicEnabled;
     this.context = null;
     this.contextResume = null;
-    this.master = null;
+    this.effectsGain = null;
     this.theme = 'meadow';
     this.phase = 'ready';
     this.musicElement = null;
@@ -21,21 +24,25 @@ export class GameAudio {
     this.musicGeneration = 0;
     this.musicFailed = false;
     this.musicAutoplayBlocked = false;
+    this.musicTransition = null;
+    this.musicEnvelope = null;
   }
 
   unlock() {
-    if (!this.enabled) return;
+    if (!this.enabled && !this.musicEnabled) return;
     if (!this.context) {
       this.context = new AudioContext();
-      this.master = this.context.createGain();
-      this.master.connect(this.context.destination);
+      this.effectsGain = this.context.createGain();
+      this.effectsGain.gain.setValueAtTime(this.enabled ? 1 : 0, this.context.currentTime);
+      this.effectsGain.connect(this.context.destination);
       // One streaming element avoids decoding several long songs into PCM buffers.
       this.musicElement = new Audio();
       this.musicElement.loop = true;
       this.musicElement.preload = 'none';
       this.musicSource = this.context.createMediaElementSource(this.musicElement);
       this.musicGain = this.context.createGain();
-      this.musicSource.connect(this.musicGain).connect(this.master);
+      this.musicSource.connect(this.musicGain).connect(this.context.destination);
+      this.setMusicLevel(0);
       this.musicElement.addEventListener('error', () => {
         if (!this.musicElement.error || this.musicFailed) return;
         this.musicFailed = true;
@@ -58,9 +65,8 @@ export class GameAudio {
 
   setEnabled(value) {
     this.enabled = value;
-    if (this.master) this.master.gain.setValueAtTime(value ? 1 : 0, this.context.currentTime);
+    if (this.effectsGain) this.effectsGain.gain.setValueAtTime(value ? 1 : 0, this.context.currentTime);
     if (value) this.unlock();
-    else this.syncMusic();
   }
 
   setMusicEnabled(value) {
@@ -78,31 +84,47 @@ export class GameAudio {
   syncMusic() {
     if (!this.musicElement) return;
     const track = musicTracks[this.theme] ?? null;
+    if (track === this.musicTrack) this.cancelMusicTransition();
     if (track !== this.musicTrack) {
-      this.musicElement.pause();
-      this.musicGeneration++;
-      this.musicRequest = null;
-      this.musicTrack = track;
-      this.musicFailed = false;
-      this.musicAutoplayBlocked = false;
-      if (track) this.musicElement.src = track;
-      else this.musicElement.removeAttribute('src');
-      // load() cancels pending requests for the previous source and resets time.
-      this.musicElement.load();
+      if (this.wantsMusic() && !this.musicElement.paused && !this.musicRequest && this.musicLevel() > 0) {
+        if (!this.musicTransition) {
+          this.setMusicLevel(0, FADE_OUT);
+          const transition = { timer: null };
+          this.musicTransition = transition;
+          transition.timer = setTimeout(() => {
+            if (this.musicTransition !== transition) return;
+            this.musicTransition = null;
+            // Rapid choices replace only the destination, never queue extra songs.
+            this.replaceMusicTrack(musicTracks[this.theme] ?? null);
+            this.syncMusic();
+          }, FADE_OUT * 1000);
+        }
+        return;
+      }
+      this.cancelMusicTransition();
+      this.replaceMusicTrack(track);
     }
     const wanted = this.wantsMusic();
-    this.musicGain.gain.setValueAtTime(wanted ? .3 : 0, this.context.currentTime);
     if (!wanted) {
+      this.setMusicLevel(0);
       this.musicElement.pause();
       if (this.musicRequest) this.musicGeneration++;
       this.musicRequest = null;
       return;
     }
-    if (this.musicRequest || !this.musicElement.paused) return;
+    if (this.musicRequest) return;
+    if (!this.musicElement.paused) {
+      this.setMusicLevel(MUSIC_VOLUME, FADE_IN);
+      return;
+    }
+    this.setMusicLevel(0);
     const request = { generation: this.musicGeneration };
     this.musicRequest = request;
     this.musicElement.play().then(() => {
-      if (this.musicRequest === request) this.musicRequest = null;
+      if (this.musicRequest === request) {
+        this.musicRequest = null;
+        if (this.wantsMusic() && !this.musicTransition) this.setMusicLevel(MUSIC_VOLUME, FADE_IN);
+      }
       // A delayed play result never changes the scene or issues another play.
       if (!this.wantsMusic()) this.musicElement.pause();
     }, (error) => {
@@ -116,10 +138,50 @@ export class GameAudio {
     });
   }
 
+  replaceMusicTrack(track) {
+    this.setMusicLevel(0);
+    this.musicElement.pause();
+    this.musicGeneration++;
+    this.musicRequest = null;
+    this.musicTrack = track;
+    this.musicFailed = false;
+    this.musicAutoplayBlocked = false;
+    if (track) this.musicElement.src = track;
+    else this.musicElement.removeAttribute('src');
+    // load() cancels pending requests for the previous source and resets time.
+    this.musicElement.load();
+  }
+
+  cancelMusicTransition() {
+    if (!this.musicTransition) return;
+    clearTimeout(this.musicTransition.timer);
+    this.musicTransition = null;
+  }
+
+  musicLevel() {
+    if (!this.musicEnvelope) return 0;
+    const { from, to, start, end } = this.musicEnvelope;
+    const time = this.context.currentTime;
+    if (time >= end) return to;
+    return from + (to - from) * Math.max(0, (time - start) / (end - start));
+  }
+
+  setMusicLevel(to, duration = 0) {
+    const now = this.context.currentTime;
+    // Scene refreshes and unlock gestures must not restart an existing envelope.
+    if (this.musicEnvelope?.to === to && (duration > 0 || this.musicEnvelope.end <= now)) return;
+    const from = this.musicLevel();
+    const gain = this.musicGain.gain;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(duration > 0 ? from : to, now);
+    if (duration > 0) gain.linearRampToValueAtTime(to, now + duration);
+    this.musicEnvelope = { from: duration > 0 ? from : to, to, start: now, end: now + duration };
+  }
+
   wantsMusic() {
     const contextAvailable = this.context?.state === 'running'
       || (this.contextResume && ['suspended', 'interrupted'].includes(this.context?.state));
-    return Boolean(this.musicTrack && this.enabled && this.musicEnabled && !this.musicFailed
+    return Boolean(this.musicTrack && this.musicEnabled && !this.musicFailed
       && ['ready', 'playing', 'over'].includes(this.phase) && contextAvailable);
   }
 
@@ -145,7 +207,7 @@ export class GameAudio {
     gain.gain.setValueAtTime(0, start);
     gain.gain.linearRampToValueAtTime(isKvlt(theme) ? .027 : .065, start + .007);
     gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
-    oscillator.connect(gain).connect(this.master);
+    oscillator.connect(gain).connect(this.effectsGain);
     oscillator.start(start);
     oscillator.stop(start + duration + .015);
     oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };

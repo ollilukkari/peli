@@ -17,6 +17,8 @@ function application({ autoStart = true, storedSettings = null } = {}) {
       this.dataset = {};
       this.captures = new Set();
       this.attributes = new Map();
+      this.children = [];
+      this.open = false;
     }
     addEventListener(type, listener) {
       if (!this.listeners.has(type)) this.listeners.set(type, []);
@@ -32,6 +34,17 @@ function application({ autoStart = true, storedSettings = null } = {}) {
     }
     closest() { return this.isControl ? this : null; }
     setAttribute(name, value) { this.attributes.set(name, value); }
+    append(...children) { this.children.push(...children); }
+    cloneNode(deep) {
+      assert.equal(deep, true, 'help needs the complete guide, including its content');
+      const clone = new Element(this.isControl);
+      clone.textContent = this.textContent;
+      clone.copiedFrom = this;
+      clone.append(...this.children.map((child) => child.cloneNode(true)));
+      return clone;
+    }
+    showModal() { this.open = true; }
+    close() { this.open = false; this.dispatch('close'); }
     focus() { document.activeElement = this; }
     getContext() { return {}; }
     getBoundingClientRect() { return { left: 10, top: 20, width: core.WIDTH, height: core.HEIGHT }; }
@@ -41,7 +54,7 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   }
   const elements = new Map();
   const element = (id) => {
-    if (!elements.has(id)) elements.set(id, new Element(['#start', '#sound', '#music', '#resume'].includes(id)));
+    if (!elements.has(id)) elements.set(id, new Element(['#start', '#sound', '#music', '#resume', '#help-open', '#help-close'].includes(id)));
     return elements.get(id);
   };
   const themeButtons = new Map(['meadow', 'autumn', 'winter'].map((theme) => {
@@ -57,17 +70,21 @@ function application({ autoStart = true, storedSettings = null } = {}) {
     querySelectorAll: (selector) => selector === '[data-theme-choice]' ? [...themeButtons.values()] : [],
   });
   const window = new Element();
+  element('.intro').textContent = 'Shared desktop movement instructions';
+  element('.field-guide').textContent = 'Shared desktop item instructions';
   const storage = new Map();
   if (storedSettings) storage.set('ponppu.settings.v1', JSON.stringify(storedSettings));
   const audioScenes = [];
   const musicChanges = [];
+  const effectChanges = [];
   const context = vm.createContext({
     ...core, Element, document, window,
     matchMedia: () => Object.assign(new Element(), { matches: false }),
     localStorage: { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
     crypto: { getRandomValues: (values) => { values[0] = 42; return values; } },
     GameAudio: class {
-      unlock() {} play() {} setEnabled() {}
+      unlock() {} play() {}
+      setEnabled(value) { effectChanges.push(value); }
       setScene(theme, phase) { audioScenes.push({ theme, phase }); }
       setMusicEnabled(value) { musicChanges.push(value); }
     },
@@ -79,7 +96,7 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   const canvas = element('#game');
   const inspect = (expression) => vm.runInContext(expression, context);
   return {
-    document, window, element, canvas, inspect, themeButtons, audioScenes, musicChanges,
+    document, window, element, canvas, inspect, themeButtons, audioScenes, musicChanges, effectChanges,
     savedSettings: () => JSON.parse(storage.get('ponppu.settings.v1')),
     get game() { return inspect('game'); },
     axis: () => inspect('getAxis()'),
@@ -92,7 +109,12 @@ function application({ autoStart = true, storedSettings = null } = {}) {
       inspect('processEvents(); refreshUi()');
     },
     key(type, code, options = {}) {
-      return window.dispatch(type, { code, target: document.activeElement, ...options });
+      const event = window.dispatch(type, { code, target: document.activeElement, ...options });
+      // Native dialogs dispatch cancel on an unconsumed Escape key.
+      if (type === 'keydown' && code === 'Escape' && !event.defaultPrevented && element('#help-dialog').open) {
+        element('#help-dialog').dispatch('cancel');
+      }
+      return event;
     },
     pointer(type, id, x = 120, y = 480, target = canvas) {
       return target.dispatch(type, { pointerId: id, pointerType: 'touch', clientX: x + 10, clientY: y + 20 });
@@ -290,6 +312,62 @@ test('music preference restores and toggles independently without pausing the ga
   assert.equal(app.savedSettings().sound, true);
   assert.equal(app.savedSettings().music, false);
   assert.equal(app.element('#sound').attributes.get('aria-pressed'), 'true');
+});
+
+test('effect control announces only sound effects and leaves the music preference untouched', () => {
+  const app = application({ storedSettings: { theme: 'winter', sound: false, music: true } });
+  const sound = app.element('#sound');
+  assert.equal(sound.attributes.get('aria-label'), 'Ota ääniefektit käyttöön');
+  assert.equal(sound.attributes.get('title'), 'Ota ääniefektit käyttöön');
+  sound.focus();
+  sound.dispatch('click');
+  assert.equal(sound.attributes.get('aria-label'), 'Mykistä ääniefektit');
+  assert.equal(sound.attributes.get('title'), 'Mykistä ääniefektit');
+  assert.equal(sound.attributes.get('aria-pressed'), 'true');
+  assert.equal(app.document.activeElement, app.canvas);
+  sound.dispatch('click');
+  assert.equal(sound.attributes.get('aria-label'), 'Ota ääniefektit käyttöön');
+  assert.equal(sound.attributes.get('aria-pressed'), 'false');
+  assert.deepEqual(app.effectChanges, [true, false]);
+  assert.deepEqual(app.musicChanges, []);
+  assert.equal(app.savedSettings().sound, false);
+  assert.equal(app.savedSettings().music, true);
+  assert.equal(app.game.phase, 'playing');
+});
+
+test('menu help reuses both complete desktop guides and returns focus after close or Escape', () => {
+  const app = application({ autoStart: false });
+  const open = app.element('#help-open');
+  const dialog = app.element('#help-dialog');
+  const content = app.element('#help-content');
+  const guides = [...content.children];
+  assert.equal(guides.length, 2);
+  for (const [index, selector] of ['.intro', '.field-guide'].entries()) {
+    assert.equal(guides[index].copiedFrom, app.element(selector));
+    assert.equal(guides[index].textContent, app.element(selector).textContent);
+    assert.notEqual(guides[index], app.element(selector));
+  }
+  const gameBefore = JSON.stringify(app.game);
+  open.focus();
+  open.dispatch('click');
+  assert.equal(dialog.open, true);
+  assert.equal(app.document.activeElement, app.element('#help-close'));
+  assert.equal(content.scrollTop, 0);
+  app.element('#help-close').dispatch('click');
+  assert.equal(dialog.open, false);
+  assert.equal(app.document.activeElement, open);
+  content.scrollTop = 250;
+  open.dispatch('click');
+  assert.equal(content.scrollTop, 0);
+  assert.deepEqual(content.children, guides, 'reopening must not duplicate the guide content');
+  assert.equal(app.key('keydown', 'Escape').defaultPrevented, false, 'Escape reaches the native dialog');
+  assert.equal(dialog.open, false);
+  assert.equal(app.document.activeElement, open);
+  assert.equal(JSON.stringify(app.game), gameBefore, 'reading help must not start or pause a round');
+  app.element('#start').dispatch('click');
+  open.dispatch('click');
+  assert.equal(dialog.open, false, 'the help action is available only in the start menu');
+  assert.equal(app.game.phase, 'playing');
 });
 
 test('start, pause, resume, menu and a real falling loss update the audio scene once per transition', () => {
