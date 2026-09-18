@@ -12,13 +12,8 @@
     <title>Pupun pomputtelu peli</title>
   </head>
   <body data-theme="meadow">
-    <header class="site-header">
-      <a class="brand" href="./" aria-label="Pupun pomputtelu peli, etusivu">
-        <img src="./assets/icon.svg" alt="" width="42" height="42">
-        <span>POMPUTTELU</span>
-      </a>
-      <button class="quiet-button" id="install" hidden>Asenna peli <span aria-hidden="true">↗</span></button>
-    </header>
+
+    <div id="update-notice" class="update-notice" hidden><span id="update-message" role="status" aria-live="polite"></span><button id="update" hidden disabled>Päivitä peli</button></div>
 
     <main class="layout">
       <aside class="intro">
@@ -60,7 +55,10 @@
               </div>
               <button class="primary-button" id="start">Pompitaan! <span aria-hidden="true">↗</span></button>
               <p class="record-line">OMA ENNÄTYS <strong><span class="best-score">0</span> m</strong></p>
-              <button class="help-button" id="help-open" aria-haspopup="dialog" aria-controls="help-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v14M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1M12 6c3-2 6-2 9-1v14c-3-1-6-1-9 1M6 8h3M6 11h3M15 8h3M15 11h3"/></svg>Pelin ohjeet</button>
+              <div class="menu-tools">
+                <button class="help-button" id="help-open" aria-haspopup="dialog" aria-controls="help-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v14M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1M12 6c3-2 6-2 9-1v14c-3-1-6-1-9 1M6 8h3M6 11h3M15 8h3M15 11h3"/></svg>Pelin ohjeet</button>
+                <button class="quiet-button" id="install" hidden>Asenna peli <span aria-hidden="true">↗</span></button>
+              </div>
             </div>
             <div class="start-tip" id="start-tip">Kosketa ja vedä alaosassa <span aria-hidden="true">↔</span></div>
           </div>
@@ -79,8 +77,6 @@
           <div id="trap-notice" class="trap-notice" hidden><strong>TÖKI!</strong><span class="trap-dots" id="trap-dots" aria-hidden="true">○ ○ ○ ○</span></div>
           <div class="bottom-line" aria-hidden="true"></div>
         </div>
-        <div class="under-game"><span id="mode-label">KESÄ</span><span id="connection-status"></span></div>
-        <div id="update-notice" class="update-notice" hidden><span>Uusi versio on valmis.</span><button id="update">Päivitä peli</button></div>
         <p id="storage-notice" class="storage-notice" hidden>Selain ei salli tallennusta. Ennätys ja asetukset säilyvät vain tämän käynnin ajan.</p>
       </section>
 

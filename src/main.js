@@ -52,6 +52,7 @@ let joystick = null;
 let accumulator = 0;
 let previousTime = 0;
 let updateReady = false;
+let lastUpdateState = null;
 let wasTrapped = false;
 let deferredInstall = null;
 let lastScore = -1;
@@ -81,7 +82,6 @@ function setTheme(theme) {
   document.querySelectorAll('[data-theme-choice]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.themeChoice === theme));
   });
-  $('#mode-label').textContent = { meadow: 'KESÄ', autumn: 'RUSKA', winter: 'TALVI' }[theme];
   const surfaceColor = { meadow: '#e6edda', autumn: '#efdbb6', kvlt: '#242034', winter: '#101d30' }[theme];
   document.documentElement.style.backgroundColor = surfaceColor;
   $('meta[name="theme-color"]').setAttribute('content', surfaceColor);
@@ -184,8 +184,22 @@ function refreshUi() {
     wasTrapped = trapped;
     lastTapCount = game.trapTaps;
   }
-  // An update can only be accepted between rounds, never during play or a pause.
-  $('#update-notice').hidden = !updateReady || !['ready', 'over'].includes(game.phase);
+  refreshUpdateNotice();
+}
+
+function refreshUpdateNotice() {
+  const canUpdate = ['ready', 'over'].includes(game.phase);
+  const state = !updateReady ? 'hidden' : canUpdate ? 'available' : 'after-round';
+  if (state === lastUpdateState) return;
+  lastUpdateState = state;
+  $('#update-notice').hidden = !updateReady;
+  document.body.dataset.updateReady = String(updateReady);
+  $('#update-message').textContent = !updateReady ? '' : canUpdate
+    ? 'Uusi versio on valmis.' : 'Päivitys valmis kierroksen jälkeen.';
+  const button = $('#update');
+  button.hidden = !updateReady || !canUpdate;
+  button.disabled = !updateReady || !canUpdate;
+  button.textContent = 'Päivitä peli';
 }
 
 $('#start').addEventListener('click', startRound);
@@ -301,12 +315,10 @@ coarse.addEventListener('change', refreshControlHint);
 
 const pwa = setupPwa({
   onUpdateReady() { updateReady = true; refreshUi(); },
-  onOfflineReady() { $('#connection-status').textContent = 'TOIMII MYÖS OFFLINE'; },
-  onStatus(status) { if (status.kind === 'error') $('#connection-status').textContent = 'OFFLINE EI VIELÄ VALMIS'; },
 });
 $('#update').addEventListener('click', async () => {
-  if (!['ready', 'over'].includes(game.phase)) return;
   const button = $('#update');
+  if (!updateReady || !['ready', 'over'].includes(game.phase) || button.disabled) return;
   button.disabled = true;
   button.textContent = 'Päivitetään…';
   if (!await pwa.applyUpdate()) { button.disabled = false; button.textContent = 'Yritä uudelleen'; }

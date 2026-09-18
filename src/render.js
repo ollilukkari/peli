@@ -8,28 +8,40 @@ const palettes = {
     distant: '#bdcdb4', hill: '#95bea2', nearHill: '#7daa87', detail: '#edf2b1',
     grass: '#497b5b', grassLight: '#a0cf76', grassTop: '#d4e89a', dirt: '#97745e',
     dirtLight: '#b59270', dirtDark: '#6d5b50', flower: '#f4b19c', outline: '#4b4750',
+    rock: '#888779', rockLight: '#aaa794', rockDark: '#60665d',
   },
   autumn: {
     sky: '#eee9dd', skyBottom: '#d8c8aa', cloud: '#fbf3e3', cloudShade: '#d9cdbb',
     distant: '#c1b198', hill: '#b39a77', nearHill: '#927e5c', detail: '#f0cf88',
     grass: '#9b693d', grassLight: '#dca44f', grassTop: '#f3d189', dirt: '#8e6850',
     dirtLight: '#b88c61', dirtDark: '#674f43', flower: '#bc6546', outline: '#5e4945',
+    rock: '#8e7d6c', rockLight: '#b4a087', rockDark: '#675e54',
   },
   kvlt: {
     sky: '#252a43', skyBottom: '#666078', cloud: '#777089', cloudShade: '#5b546f',
     distant: '#464359', hill: '#3c3e50', nearHill: '#333849', detail: '#b0a8cc',
     grass: '#67677f', grassLight: '#92909f', grassTop: '#b1a7b9', dirt: '#575467',
     dirtLight: '#757083', dirtDark: '#343143', flower: '#c687b3', outline: '#242638',
+    rock: '#615c72', rockLight: '#847c91', rockDark: '#393547',
   },
   winter: {
     sky: '#080f20', skyBottom: '#263e57', cloud: '#6f879b', cloudShade: '#435b72',
     distant: '#253e55', hill: '#1d3349', nearHill: '#13283b', detail: '#d8ebf2',
     grass: '#91b0c1', grassLight: '#e0eff4', grassTop: '#ffffff', dirt: '#3e576b',
     dirtLight: '#628196', dirtDark: '#172c3e', flower: '#e8f3f8', outline: '#091322',
+    rock: '#557084', rockLight: '#7e9aac', rockDark: '#293f52',
   },
 };
 
 const isDarkTheme = (theme) => theme === 'kvlt' || theme === 'winter';
+
+// Visual choices stay fixed as the camera moves and never consume gameplay randomness.
+function platformHash(seed, id, channel = 0) {
+  let value = seed ^ Math.imul(id + 1, 0x9e3779b9) ^ Math.imul(channel + 1, 0x85ebca6b);
+  value = Math.imul(value ^ (value >>> 16), 0x7feb352d);
+  value = Math.imul(value ^ (value >>> 15), 0x846ca68b);
+  return (value ^ (value >>> 16)) >>> 0;
+}
 
 function box(ctx, color, x, y, width, height) {
   ctx.fillStyle = color;
@@ -327,75 +339,237 @@ function drawSnowLantern(ctx, x, y) {
   box(ctx, '#cfdbdc', x + 6, y - 11, 4, 3);
 }
 
-function drawPlatformScenery(ctx, platform, y, theme) {
+function drawDaisies(ctx, x, y) {
+  for (const [dx, height] of [[-9, 15], [0, 23], [9, 12]]) {
+    box(ctx, '#829473', x + dx, y - height, 2, height + 1);
+    box(ctx, '#91a77c', x + dx - 4, y - height / 2, 5, 2);
+    box(ctx, '#d5d5b7', x + dx - 4, y - height - 2, 10, 4);
+    box(ctx, '#e2ddc2', x + dx - 1, y - height - 5, 4, 10);
+    box(ctx, '#bdac73', x + dx - 1, y - height - 2, 4, 4);
+  }
+}
+
+function drawMushrooms(ctx, x, y, spotted = false) {
+  for (const [dx, top, width] of [[-5, -19, 20], [10, -11, 12]]) {
+    box(ctx, '#b1a58b', x + dx - 2, y + top + 5, 4, -top - 3);
+    box(ctx, '#c7bea3', x + dx - 2, y + top + 5, 2, -top - 3);
+    pixelOval(ctx, spotted ? '#a96f60' : '#a28a6d', x + dx - width / 2, y + top, width, 9, 2);
+    box(ctx, spotted ? '#bd8770' : '#b69e7e', x + dx - width / 2 + 4, y + top, width - 8, 2);
+    box(ctx, '#c9b99a', x + dx - width / 2 + 2, y + top + 7, width - 4, 2);
+    if (spotted) {
+      box(ctx, '#d8c7ad', x + dx - 5, y + top + 3, 3, 2);
+      box(ctx, '#d8c7ad', x + dx + 2, y + top + 2, 2, 2);
+    }
+  }
+}
+
+function drawRock(ctx, x, y, snowy = false) {
+  const shade = snowy ? '#607e92' : '#828977';
+  const stone = snowy ? '#7f98a8' : '#a1a18a';
+  shape(ctx, shade, [[x - 16, y + 2], [x - 16, y - 6], [x - 11, y - 6], [x - 11, y - 14], [x - 1, y - 18], [x + 9, y - 15], [x + 13, y - 7], [x + 15, y + 2]]);
+  shape(ctx, stone, [[x - 12, y - 5], [x - 9, y - 13], [x - 1, y - 16], [x + 6, y - 13], [x + 9, y - 3], [x - 2, y - 1]]);
+  box(ctx, snowy ? '#90aab8' : '#b2b29b', x - 6, y - 13, 7, 3);
+  pixelOval(ctx, shade, x + 10, y - 4, 9, 7, 1);
+  if (snowy) {
+    box(ctx, '#c7d9df', x - 10, y - 16, 17, 5);
+    box(ctx, '#d7e4e7', x - 6, y - 19, 9, 4);
+    box(ctx, '#b8ced8', x + 5, y - 13, 5, 5);
+    box(ctx, '#c7d9df', x + 12, y - 5, 5, 2);
+  }
+}
+
+function drawStump(ctx, x, y, mossy = false) {
+  shape(ctx, '#8c7861', [[x - 13, y + 2], [x - 11, y - 4], [x - 9, y - 19], [x + 8, y - 19], [x + 10, y - 4], [x + 15, y + 2]]);
+  box(ctx, '#a18b6c', x - 7, y - 17, 6, 18);
+  box(ctx, '#a99471', x + 4, y - 16, 3, 16);
+  box(ctx, '#756b58', x - 3, y - 13, 2, 10);
+  box(ctx, '#756b58', x + 8, y - 9, 2, 8);
+  pixelOval(ctx, '#b5a181', x - 9, y - 22, 18, 7, 2);
+  box(ctx, '#8f8168', x - 4, y - 20, 8, 3);
+  box(ctx, '#c3af8c', x - 2, y - 20, 4, 2);
+  if (mossy) {
+    box(ctx, '#8b9667', x - 11, y - 5, 8, 7);
+    box(ctx, '#a0a777', x - 10, y - 5, 5, 2);
+    box(ctx, '#8b9667', x + 4, y - 18, 7, 4);
+  }
+}
+
+function drawLeafPile(ctx, x, y) {
+  pixelOval(ctx, '#a68b61', x - 18, y - 7, 36, 10, 3);
+  pixelOval(ctx, '#bb9765', x - 12, y - 12, 24, 11, 2);
+  for (const [dx, dy, color] of [[-13, -6, '#c3a676'], [-7, -10, '#c4a064'], [1, -8, '#ad7c58'], [8, -6, '#c7a977'], [-5, -3, '#a87957'], [3, -3, '#c8aa77']]) {
+    box(ctx, color, x + dx, y + dy, 7, 3);
+    box(ctx, '#927b59', x + dx + 4, y + dy + 2, 2, 1);
+  }
+}
+
+function drawBareBranch(ctx, x, y) {
+  box(ctx, '#9a866d', x - 1, y - 31, 3, 33);
+  for (const [dx, top, direction] of [[-10, -18, -1], [2, -23, 1], [-7, -27, -1]]) {
+    box(ctx, '#9a866d', x + dx, y + top, 9, 3);
+    box(ctx, '#9a866d', x + dx + (direction > 0 ? 7 : 0), y + top - 6, 2, 7);
+  }
+  box(ctx, '#b09c7e', x, y - 25, 1, 22);
+  box(ctx, '#bd9b6e', x + 9, y - 26, 5, 2);
+}
+
+function drawSnowyFir(ctx, x, y) {
+  box(ctx, '#728695', x - 2, y - 7, 4, 10);
+  for (const [top, width, height] of [[-30, 10, 10], [-23, 20, 11], [-15, 30, 12]]) {
+    box(ctx, '#64818a', x - width / 2 + 3, y + top, width - 6, height);
+    box(ctx, '#64818a', x - width / 2, y + top + 5, width, height - 5);
+    box(ctx, '#a8bdc5', x - width / 2 + 3, y + top + 1, width - 6, 3);
+    box(ctx, '#c2d4d9', x - width / 2 + 5, y + top, width - 10, 2);
+    box(ctx, '#93acb8', x - width / 2, y + top + 5, 6, 3);
+  }
+}
+
+function drawIceCrystals(ctx, x, y) {
+  for (const [dx, height, width] of [[-12, 13, 7], [-3, 23, 9], [7, 16, 8]]) {
+    shape(ctx, '#7d9eae', [[x + dx, y + 2], [x + dx, y - height + 4], [x + dx + width / 2, y - height], [x + dx + width, y - height + 4], [x + dx + width, y + 2]]);
+    box(ctx, '#a6bec9', x + dx + 2, y - height + 5, 2, height - 4);
+    box(ctx, '#8daebb', x + dx + width - 2, y - height + 6, 2, height - 5);
+  }
+  box(ctx, '#b6cbd4', x - 15, y, 33, 3);
+}
+
+function drawLampPost(ctx, x, y) {
+  box(ctx, '#637c8e', x - 2, y - 23, 4, 24);
+  box(ctx, '#8197a3', x - 1, y - 21, 1, 22);
+  box(ctx, '#637c8e', x - 6, y, 12, 3);
+  box(ctx, '#6d8391', x - 7, y - 29, 14, 10);
+  box(ctx, '#b4ae92', x - 5, y - 28, 10, 7);
+  box(ctx, '#d4c59c', x - 3, y - 27, 6, 5);
+  box(ctx, '#748893', x - 1, y - 28, 2, 8);
+  box(ctx, '#728a9a', x - 8, y - 31, 16, 3);
+  box(ctx, '#aec2cb', x - 6, y - 33, 12, 2);
+  box(ctx, '#bdcfd5', x - 3, y - 34, 6, 2);
+}
+
+const platformScenery = {
+  meadow: [drawFern, drawDaisies, drawMushrooms, drawRock, drawStump],
+  autumn: [drawAutumnBush, drawPumpkin, drawLeafPile,
+    (ctx, x, y) => drawMushrooms(ctx, x, y, true), drawBareBranch,
+    (ctx, x, y) => drawStump(ctx, x, y, true)],
+  winter: [drawSnowman, drawSnowLantern, drawSnowyFir,
+    (ctx, x, y) => drawRock(ctx, x, y, true), drawIceCrystals, drawLampPost],
+};
+function drawPlatformScenery(ctx, platform, y, theme, seed) {
   if (theme === 'kvlt') return;
-  const count = platform.width > 155 ? 2 : 1;
+  const spacing = platformHash(seed, platform.id, 1);
+  // Local minima give roughly one decorated platform in three, never adjacent ids.
+  if (spacing >= platformHash(seed, platform.id - 1, 1)
+    || spacing >= platformHash(seed, platform.id + 1, 1)) return;
+  const detail = platformHash(seed, platform.id, 2);
+  const scale = .8 + (detail % 4) * .1;
+  const fraction = .16 + ((detail >>> 8) % 69) / 100;
+  const x = platform.x + 22 + (platform.width - 44) * fraction;
+  // Keep the silhouette clear of both original items and later chain fruit.
+  if ([platform.item, platform.chainSatsuma].some((item) => item && Math.abs(item.x - x) < 40)) return;
   ctx.save();
   ctx.globalAlpha = theme === 'winter' ? .75 : .68;
-  for (let index = 0; index < count; index++) {
-    const variant = (platform.id + index) % 2;
-    const fraction = count === 2 ? (index === 0 ? .18 : .82) : variant ? .7 : .3;
-    const x = platform.x + 19 + Math.max(0, platform.width - 38) * fraction;
-    if (theme === 'meadow') drawFern(ctx, x, y);
-    else if (theme === 'autumn') (variant ? drawPumpkin : drawAutumnBush)(ctx, x, y);
-    else (variant ? drawSnowLantern : drawSnowman)(ctx, x, y);
-  }
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(detail & 16 ? scale : -scale, scale);
+  const choices = platformScenery[theme];
+  choices[platformHash(seed, platform.id, 3) % choices.length](ctx, 0, 0);
   ctx.restore();
 }
 
-function drawPlatform(ctx, platform, screenY, palette, theme) {
+function drawPlatform(ctx, platform, screenY, palette, theme, gameSeed) {
   const x = Math.round(platform.x);
   const y = Math.round(screenY);
   const width = Math.round(platform.width);
-  const seed = Math.abs(Number(platform.id) || x + platform.y);
+  const seed = platformHash(gameSeed, platform.id);
+  const variant = seed % 4;
+  const detail = platformHash(gameSeed, platform.id, 4);
+  const stone = variant === 1 || variant === 2;
+  const fill = stone ? palette.rock : palette.dirt;
+  const shade = stone ? palette.rockDark : palette.dirtDark;
+  const light = stone ? palette.rockLight : palette.dirtLight;
 
-  // A dark underside and the thin bright top make the landing surface unambiguous.
-  box(ctx, 'rgba(37,43,46,.13)', x + 5, y + 20, width - 10, 5);
-  box(ctx, palette.dirtDark, x + 3, y + 5, width - 6, 19);
-  box(ctx, palette.dirtDark, x + 9, y + 24, width - 18, 3);
-  box(ctx, palette.dirt, x + 3, y + 6, width - 6, 15);
-  box(ctx, palette.dirt, x + 9, y + 21, width - 18, 3);
-  for (let j = 0; j < width - 14; j += 17) {
-    const depth = ((j + seed * 3) % 11) + 10;
-    box(ctx, palette.dirtLight, x + 8 + j, y + depth, 5, 3);
-    if (!isDarkTheme(theme) && j % 2 === 0) box(ctx, palette.dirtDark, x + 10 + j, y + 21, 2, 4);
+  ctx.save();
+  ctx.translate(x, y);
+  // All undersides fit within 27 px: fruit headroom relies on this bound.
+  if (variant === 0) {
+    // Soft earth with an uneven, stepped lower edge.
+    const shoulder = 16 + detail % 16;
+    shape(ctx, shade, [[3, 5], [width - 3, 5], [width - 3, 19], [width - 11, 19],
+      [width - 11, 24], [shoulder + 8, 24], [shoulder + 8, 27], [shoulder, 27], [shoulder, 23], [8, 23], [8, 18], [3, 18]]);
+    box(ctx, fill, 4, 7, width - 8, 11);
+    box(ctx, fill, 10, 18, width - 23, 4);
+  } else if (variant === 1) {
+    // Broad rock cap narrowing into a faceted base.
+    shape(ctx, shade, [[2, 6], [width - 2, 6], [width - 2, 13], [width - 9, 13],
+      [width - 9, 20], [width - 24, 20], [width - 24, 26], [21, 26], [21, 22], [10, 22], [10, 16], [2, 16]]);
+    shape(ctx, fill, [[4, 7], [width - 5, 7], [width - 5, 12], [width - 12, 12],
+      [width - 12, 18], [width - 27, 18], [width - 27, 22], [22, 22], [22, 18], [12, 18], [12, 14], [4, 14]]);
+    box(ctx, light, 13, 10, Math.round(width * .31), 3);
+    box(ctx, shade, Math.round(width * .57), 9, 3, 9);
+    box(ctx, shade, Math.round(width * .57) - 6, 17, 9, 2);
+  } else if (variant === 2) {
+    // Thin layered ledge, broken strata and short offset shelves.
+    box(ctx, shade, 3, 6, width - 6, 13);
+    box(ctx, fill, 3, 7, width - 6, 8);
+    box(ctx, light, 7, 11, width - 17, 2);
+    box(ctx, fill, 13, 18, Math.round(width * .48), 4);
+    box(ctx, shade, 17, 22, Math.round(width * .4), 2);
+    box(ctx, shade, width - 31, 17, 18, 4);
+    box(ctx, shade, 18 + detail % 26, 11, 9, 2);
+  } else {
+    // A mossy clump with short roots tucked beneath the landing surface.
+    box(ctx, shade, 3, 6, width - 6, 12);
+    box(ctx, fill, 4, 7, width - 8, 8);
+    for (let j = 8; j < width - 14; j += 18) {
+      const depth = 5 + ((detail >>> (j % 16)) % 5);
+      box(ctx, shade, j, 16, 13, depth);
+      box(ctx, fill, j, 14, 11, depth);
+    }
+    for (let j = 17 + detail % 13; j < width - 16; j += 37) {
+      box(ctx, shade, j, 19, 3, 8);
+      box(ctx, shade, j + 2, 24, 5, 2);
+    }
   }
+  for (let j = 10 + detail % 9; j < width - 10; j += 23 + detail % 7) {
+    box(ctx, light, j, 10 + ((detail + j) % 4), 4 + j % 3, 2);
+  }
+  ctx.restore();
+
+  // Every style keeps the exact same continuous, full-width landing strip.
   box(ctx, palette.grass, x, y + 2, width, 7);
   box(ctx, palette.grassLight, x, y, width, 5);
   box(ctx, palette.grassTop, x + 3, y, width - 6, 2);
   if (isDarkTheme(theme)) {
-    for (let j = 18; j < width - 5; j += 24) {
-      box(ctx, palette.dirtDark, x + j, y + 10, 2, 9);
-      box(ctx, palette.dirtDark, x + j - 3, y + 17, 5, 2);
-    }
     if (theme === 'winter') {
-      box(ctx, '#eef7fa', x + 3, y - 3, 13, 3);
-      box(ctx, '#eef7fa', x + width - 23, y - 2, 18, 2);
-      box(ctx, '#bad5e1', x + 7, y + 6, 3, 7);
-      box(ctx, '#bad5e1', x + width - 14, y + 6, 3, 10);
-      box(ctx, '#e1f1f6', x + width - 14, y + 6, 1, 6);
-      box(ctx, '#c5dfe9', x + width - 13, y + 16, 1, 3);
+      const snowX = x + 5 + detail % Math.max(1, width - 34);
+      box(ctx, '#eef7fa', snowX, y - 2, 19 + detail % 9, 2);
+      if (variant !== 2) box(ctx, '#eef7fa', x + width - 25, y - 3, 14, 3);
+      for (let j = 9 + detail % 16; j < width - 8; j += 33 + detail % 17) {
+        const length = 5 + (j + detail) % 9;
+        box(ctx, '#bad5e1', x + j, y + 6, 3, length);
+        box(ctx, '#e1f1f6', x + j, y + 6, 1, length - 2);
+        box(ctx, '#c5dfe9', x + j + 1, y + 6 + length, 1, 2);
+      }
     } else {
       box(ctx, '#777487', x + 6, y - 2, 8, 2);
       box(ctx, '#777487', x + width - 17, y - 3, 9, 3);
     }
   } else if (theme === 'autumn') {
     const leaves = ['#efc56a', '#b9653d', '#d68b42', '#dcac54'];
-    for (let j = 5; j < width - 5; j += 11) {
+    for (let j = 5 + detail % 9; j < width - 9; j += 17 + detail % 11) {
       const leafY = y - 1 - ((j + seed) % 3);
       box(ctx, leaves[(Math.floor(j / 11) + seed) % leaves.length], x + j, leafY, 7, 3);
       box(ctx, palette.dirtDark, x + j + 4, leafY + 2, 2, 1);
       if (j % 3 === 0) box(ctx, '#bf7c3e', x + j + 2, y + 6, 4, 4);
     }
   } else {
-    for (let j = 7; j < width - 3; j += 13) {
+    for (let j = 7 + detail % 7; j < width - 5; j += 17 + detail % 9) {
       box(ctx, palette.grass, x + j, y + 7, 4, 4 + ((j + seed) % 4));
       if (j < 24 || j > width - 23) {
         box(ctx, palette.grassLight, x + j, y - 3, 2, 3);
         box(ctx, palette.grassLight, x + j + 2, y - 5, 2, 3);
       }
     }
-    if (width > 70 && seed % 3 !== 1) {
+    if (width > 70 && detail % 7 === 0) {
       const flowerX = x + (seed % 2 ? width - 15 : 15);
       box(ctx, palette.grass, flowerX, y - 8, 2, 8);
       star(ctx, flowerX, y - 9, palette.flower, 2);
@@ -848,13 +1022,13 @@ export function drawGame(ctx, game, options = {}) {
   for (const platform of game.platforms) {
     const y = screenY(platform.y);
     if (y < -50 || y > HEIGHT + 70) continue;
-    drawPlatformScenery(ctx, platform, y, theme);
+    drawPlatformScenery(ctx, platform, y, theme, game.seed);
   }
 
   for (const platform of game.platforms) {
     const y = screenY(platform.y);
     if (y < -50 || y > HEIGHT + 30) continue;
-    drawPlatform(ctx, platform, y, palette, theme);
+    drawPlatform(ctx, platform, y, palette, theme, game.seed);
   }
 
   for (const gull of game.gulls ?? []) {

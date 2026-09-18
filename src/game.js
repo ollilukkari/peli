@@ -30,6 +30,9 @@ export const PHYSICS = Object.freeze({
 const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!', 'Njömpsis!'];
 const NORMAL_HEIGHT = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
 const PLATFORM_WIDTH_SCALE = 0.9;
+const PLATFORM_NARROWING_METERS = 250;
+const MIN_PLATFORM_WIDTH = 70;
+const MIN_SAFE_WIDTH = 5.6;
 const HALF_BUNNY = PHYSICS.playerWidth / 2;
 const SATSUMA_CLEARANCE = 72; // 38 px fruit + 27 px platform underside + breathing room.
 const GULL_MARGIN = 30;
@@ -64,67 +67,71 @@ function generatePlatforms(game) {
     const difficulty = clamp((game.generatedTopY - game.startY) / 12000, 0, 1);
     const id = ++game.generationIndex;
     const opening = id <= 3;
-    const width = (opening ? 148 + random(game) * 32 : 104 + random(game) * (92 - difficulty * 12)) * PLATFORM_WIDTH_SCALE;
+    const baseWidth = (opening ? 148 + random(game) * 32 : 104 + random(game) * 92) * PLATFORM_WIDTH_SCALE;
     let rise = opening ? 64 + random(game) * 18 : 45 + random(game) * 75;
-    const safeWidth = Math.min(PHYSICS.safeWidth, width - 88);
+    const laneJitter = (random(game) * 2 - 1) * (opening ? 40 : 16);
+    let itemType = null;
+    let itemSide = 0;
+    if (id > 3 && random(game) < 0.38 + difficulty * 0.08) {
+      const choice = random(game);
+      itemType = choice < 0.4 ? 'satsuma' : choice < 0.7 ? 'trap' : choice < 0.85 ? 'poop' : null;
+      // Even a skipped poop consumes its side draw, preserving the random stream.
+      itemSide = random(game) < 0.5 ? -1 : 1;
+    }
 
-    // A low platform leaves more flight time for a wide lateral crossing.
-    // Reserve a full reversal from the opposite maximum speed, then keep
-    // another ten pixels inside the reachable landing interval.
-    const left = width / 2 + 8;
-    const right = WIDTH - left;
     // Visit each side for two steps, allowing the route to reach the outer
     // lanes instead of repeatedly snapping back to a central stack.
     const routeLane = [0, 0, 1, 2, 2, 1][(id + game.seed % 6) % 6];
-    const laneCenter = [left, WIDTH / 2, right][routeLane];
-    const desiredCenter = opening
-      ? game.generatedCenterX + (random(game) * 2 - 1) * 40
-      : laneCenter + (random(game) * 2 - 1) * 16;
-    function reachableCenter() {
+    function geometryAtHeight() {
+      const meters = (game.generatedTopY + rise - game.startY) / PHYSICS.pixelsPerMeter;
+      const narrowingSteps = Math.floor(meters / PLATFORM_NARROWING_METERS);
+      const width = Math.max(MIN_PLATFORM_WIDTH, baseWidth * 0.9 ** narrowingSteps);
+      const safeWidth = Math.min(PHYSICS.safeWidth, Math.max(MIN_SAFE_WIDTH, width - 88));
+      // On a narrow ledge, move the safe patch away from its item while keeping
+      // four pixels between the patch and the bunny/item collision boundary.
+      const safeOffset = itemType ? itemSide * Math.min(0,
+        width / 2 - 15 - HALF_BUNNY - PHYSICS.itemHalfWidth - safeWidth / 2 - 4) : 0;
+      const left = width / 2 + 8;
+      const right = WIDTH - left;
+      const desiredCenter = (opening ? game.generatedCenterX : [left, WIDTH / 2, right][routeLane]) + laneJitter;
+
+      // Reserve a full reversal from opposite maximum speed, then another
+      // ten pixels of reach. Distances use safe patches, not visual centers.
       const landingTime = (PHYSICS.jumpSpeed
         + Math.sqrt(PHYSICS.jumpSpeed ** 2 - 2 * PHYSICS.gravity * rise)) / PHYSICS.gravity;
       const reversalTime = PHYSICS.maxSpeed * 2 / PHYSICS.acceleration;
       const reach = PHYSICS.maxSpeed * (landingTime - reversalTime);
       const maxShift = reach - game.generatedSafeWidth / 2 + safeWidth / 2 - 10;
-      return clamp(desiredCenter,
-        Math.max(left, game.generatedCenterX - maxShift),
-        Math.min(right, game.generatedCenterX + maxShift));
+      const center = clamp(desiredCenter,
+        Math.max(left, game.generatedCenterX - maxShift - safeOffset),
+        Math.min(right, game.generatedCenterX + maxShift - safeOffset));
+      return { x: center - width / 2, width, safeX: center + safeOffset, safeWidth };
     }
-    let center = reachableCenter();
+    let geometry = geometryAtHeight();
     const reserveHalf = game.generatedSafeWidth / 2 + 22;
-    const coversPatch = center + width / 2 > game.generatedCenterX - reserveHalf
-      && center - width / 2 < game.generatedCenterX + reserveHalf;
+    const coversPatch = geometry.x + geometry.width > game.generatedCenterX - reserveHalf
+      && geometry.x < game.generatedCenterX + reserveHalf;
     const coversFruit = game.generatedSatsumaX !== null
-      && center + width / 2 > game.generatedSatsumaX - 22
-      && center - width / 2 < game.generatedSatsumaX + 22;
+      && geometry.x + geometry.width > game.generatedSatsumaX - 22
+      && geometry.x < game.generatedSatsumaX + 22;
     if (rise < SATSUMA_CLEARANCE && (coversPatch || coversFruit)) {
       rise = SATSUMA_CLEARANCE;
-      center = reachableCenter();
+      // Clearance can cross a 250 m boundary; size from the final altitude.
+      geometry = geometryAtHeight();
     }
     const y = game.generatedTopY + rise;
-    let item = null;
-
-    if (id > 3 && random(game) < 0.38 + difficulty * 0.08) {
-      const choice = random(game);
-      const type = choice < 0.4 ? 'satsuma' : choice < 0.7 ? 'trap' : choice < 0.85 ? 'poop' : null;
-      const side = random(game) < 0.5 ? -1 : 1;
-      // Narrow platforms retain a smaller but still explicit safe landing patch.
-      // The skipped half of poop still consumes its side draw to preserve routes.
-      if (type) item = { type, x: center + side * (width / 2 - 15), used: false };
-    }
+    const item = itemType ? { type: itemType,
+      x: geometry.x + geometry.width / 2 + itemSide * (geometry.width / 2 - 15), used: false } : null;
 
     insertPlatform(game, {
       id,
-      x: center - width / 2,
       y,
-      width,
       item,
-      safeX: center,
-      safeWidth,
+      ...geometry,
     });
     game.generatedTopY = y;
-    game.generatedCenterX = center;
-    game.generatedSafeWidth = safeWidth;
+    game.generatedCenterX = geometry.safeX;
+    game.generatedSafeWidth = geometry.safeWidth;
     game.generatedSatsumaX = item?.type === 'satsuma' ? item.x : null;
   }
 }
@@ -412,12 +419,17 @@ function hasFruitSpace(game, platform, x) {
 }
 
 function fruitPositions(game, platform) {
-  let intervals = [[platform.x + 22, platform.x + platform.width - 22]];
+  // Compact ledges still fit a fruit beside a hazard: their main bodies stay
+  // separate and their centers remain farther apart than the hit radius.
+  const narrow = platform.width < 94;
+  const inset = narrow ? 15 : 22;
+  const itemSpacing = narrow ? 34 : 45;
+  let intervals = [[platform.x + inset, platform.x + platform.width - inset]];
   const blocked = game.platforms.filter((other) => other.id !== platform.id
     && other.y > platform.y && other.y - platform.y < SATSUMA_CLEARANCE - 1e-6)
     .map((other) => [other.x - 22, other.x + other.width + 22]);
   const item = platform.item;
-  if (item && !(item.type === 'satsuma' && item.used)) blocked.push([item.x - 45, item.x + 45]);
+  if (item && !(item.type === 'satsuma' && item.used)) blocked.push([item.x - itemSpacing, item.x + itemSpacing]);
   for (const [blockLeft, blockRight] of blocked) {
     const remaining = [];
     for (const [left, right] of intervals) {

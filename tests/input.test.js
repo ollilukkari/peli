@@ -77,6 +77,8 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   const audioScenes = [];
   const musicChanges = [];
   const effectChanges = [];
+  let pwaCallbacks;
+  let updateApplications = 0;
   const context = vm.createContext({
     ...core, Element, document, window,
     matchMedia: () => Object.assign(new Element(), { matches: false }),
@@ -88,7 +90,10 @@ function application({ autoStart = true, storedSettings = null } = {}) {
       setScene(theme, phase) { audioScenes.push({ theme, phase }); }
       setMusicEnabled(value) { musicChanges.push(value); }
     },
-    setupPwa: () => ({ applyUpdate: async () => false }),
+    setupPwa: (callbacks) => {
+      pwaCallbacks = callbacks;
+      return { applyUpdate: async () => { updateApplications++; return false; } };
+    },
     drawGame() {}, requestAnimationFrame() {},
   });
   vm.runInContext(mainSource, context, { filename: 'src/main.js' });
@@ -97,6 +102,8 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   const inspect = (expression) => vm.runInContext(expression, context);
   return {
     document, window, element, canvas, inspect, themeButtons, audioScenes, musicChanges, effectChanges,
+    announceUpdate: () => pwaCallbacks.onUpdateReady(),
+    get updateApplications() { return updateApplications; },
     savedSettings: () => JSON.parse(storage.get('ponppu.settings.v1')),
     get game() { return inspect('game'); },
     axis: () => inspect('getAxis()'),
@@ -285,7 +292,7 @@ test('menu theme choices save the selected world and notify audio without a phas
 test('a saved hidden Kvltist selection opens Talvi with the winter audio scene', () => {
   const app = application({ autoStart: false, storedSettings: { theme: 'kvlt', sound: true } });
   assert.equal(app.document.body.dataset.theme, 'winter');
-  assert.equal(app.element('#mode-label').textContent, 'TALVI');
+  assert.equal(app.element('#game-frame').dataset.theme, 'winter');
   assert.equal(app.themeButtons.get('winter').attributes.get('aria-pressed'), 'true');
   assert.deepEqual(app.audioScenes.at(-1), { theme: 'winter', phase: 'ready' });
   app.element('#start').dispatch('click');
@@ -411,4 +418,46 @@ test('blur and hidden-page transitions pause the audio scene until the player ex
   assert.equal(app.audioScenes.length, pausedCalls);
   app.element('#resume').dispatch('click');
   assert.deepEqual(app.audioScenes.at(-1), { theme: 'winter', phase: 'playing' });
+});
+
+test('a waiting update remains announced through a round and can only be applied between rounds', async () => {
+  const app = application({ autoStart: false });
+  const notice = app.element('#update-notice');
+  const message = app.element('#update-message');
+  const button = app.element('#update');
+  assert.equal(notice.hidden, true);
+  button.dispatch('click');
+  assert.equal(app.updateApplications, 0, 'an update cannot be applied before one is ready');
+  app.announceUpdate();
+  assert.equal(notice.hidden, false);
+  assert.equal(app.document.body.dataset.updateReady, 'true');
+  assert.equal(button.hidden, false);
+  assert.equal(button.disabled, false);
+  assert.equal(message.textContent, 'Uusi versio on valmis.');
+  app.element('#start').dispatch('click');
+  assert.equal(notice.hidden, false, 'playing must not hide the update notification');
+  assert.equal(message.textContent, 'Päivitys valmis kierroksen jälkeen.');
+  assert.equal(button.hidden, true);
+  assert.equal(button.disabled, true);
+  button.dispatch('click');
+  assert.equal(app.updateApplications, 0);
+  app.element('#pause').dispatch('click');
+  assert.equal(notice.hidden, false);
+  assert.equal(button.hidden, true, 'pausing is still part of the current round');
+  button.dispatch('click');
+  assert.equal(app.updateApplications, 0);
+  app.element('#resume').dispatch('click');
+  Object.assign(app.game.player, { y: app.game.camera - 1, vy: -100 });
+  core.stepGame(app.game, 1 / 120, 0);
+  app.inspect('processEvents(); refreshUi()');
+  assert.equal(app.game.phase, 'over');
+  assert.equal(notice.hidden, false);
+  assert.equal(button.hidden, false);
+  assert.equal(button.disabled, false);
+  button.dispatch('click');
+  button.dispatch('click');
+  assert.equal(app.updateApplications, 1, 'an update request must not be submitted twice');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(button.disabled, false, 'a failed apply remains retryable');
+  assert.equal(button.textContent, 'Yritä uudelleen');
 });

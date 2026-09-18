@@ -25,7 +25,11 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 - **Lokki:** sik-sak lentävään lokkiin osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise satsumaketjua.
 - **Tauko:** paina taukopainiketta tai Escapea. Taustalle siirtyminen keskeyttää kierroksen.
 
-Alareunaan putoaminen päättää kierroksen. Pisteet mittaavat edettyä matkaa. Kesä, syksyinen Ruska ja sinimustaan talviyöhön sijoittuva Talvi käyttävät samaa vaikeutta ja pelimekaniikkaa. Ruskan pupulla on tummanoranssi pipo. Pelin ympäristö sävyttyy valitun maailman mukaan. Tasojen takana näkyy Kesässä saniaisia, Ruskassa pensaita ja kurpitsoja sekä Talvessa lumiukkoja ja hohtavia lumilyhtyjä. Ne ovat pelkkiä taustakoristeita. Komboilmoitukset pysyvät pelialueen alapuoliskolla.
+Alareunaan putoaminen päättää kierroksen kolmisäveliseen, noin sekunnin mittaiseen ”di-dy-dyy”-ääniefektiin. Pisteet mittaavat edettyä matkaa. Tasojen leveys pienenee aina 10 % edellisestä leveydestä 250 metrin välein (100 %, 90 %, 81 %, …), vähintään 70 pikseliin. Kavennus määräytyy tason korkeudesta; jo luodut tasot eivät kutistu kesken hypyn.
+
+Kesä, syksyinen Ruska ja sinimustaan talviyöhön sijoittuva Talvi käyttävät samaa vaikeutta ja pelimekaniikkaa. Ruskan pupulla on tummanoranssi pipo. Pelin ympäristö sävyttyy valitun maailman mukaan. Hyppytasoissa vaihtelevat maasaarekkeet, lohkareet, kerrokselliset kielekkeet ja juurakkoiset pohjat. Kaikissa on samanlainen selkeä laskeutumisreuna.
+
+Isoja taustakoristeita näkyy enintään noin joka kolmannella tasolla, yksi kerrallaan ja epäsäännöllisin välein. Koristeiden koko, suunta ja paikka vaihtelevat, ja tavaroiden viereen jätetään tilaa. Kesässä on saniaisia, päivänkakkaroita, sieniä, kiviä ja kantoja. Ruskassa on pensaita, kurpitsoja, lehtikasoja, kärpässieniä, paljaita oksia ja sammaleisia kantoja. Talvessa on lumiukkoja, lumilyhtyjä, pieniä lumikuusia, lumikiviä, jääkiteitä ja lyhtypylväitä. Koristeet ja tasojen runkomuodot eivät muuta törmäyksiä tai esineiden toimintaa. Komboilmoitukset pysyvät pelialueen alapuoliskolla.
 
 Kesän oletusmusiikki on **Summer Platformer**, Ruskan **Kalm Mjörk** ja Talven **Frozen Minor — Reduced Low End**. Musiikki vaihtuu jo päävalikossa maailmaa valittaessa lyhyellä ulos- ja sisäänhäivytyksellä ja jatkuu kierroksen alkaessa. Selain sallii äänen ensimmäisen painalluksen jälkeen. Tauko pysäyttää musiikin samaan kohtaan. Musiikki jatkuu RIP-ruudussa, uusintakierroksella ja valikkoon palatessa; kappale vaihtuu ja alkaa alusta vasta vuodenaikaa vaihdettaessa. Taukopainikkeen viereinen nuottipainike (**Music off / Music on**) mykistää vain musiikin. Ääniefektipainike mykistää vain tehosteäänet. Musiikin ja tehosteiden asetukset toimivat toisistaan riippumatta ja tallentuvat selaimeen. Alkuperäinen Kvltist-maailma säilyy koodissa mutta on piilotettu valikosta; sen aiempi tallennettu valinta avaa Talven.
 
@@ -33,7 +37,7 @@ Aloitusvalikon ennätyksen alla oleva **Pelin ohjeet** -painike avaa samat ohjee
 
 ## Offline ja asennus
 
-HTTPS-osoitteessa tai localhostissa peli tallentaa onnistuneen ensimmäisen latauksen jälkeen koko pelipaketin offline-käyttöön. Peli ilmoittaa, kun tallennus on varmistettu. Tuettu selain voi tarjota asennusta aloitusnäytölle. Uusi versio otetaan käyttöön pelin päivityspainikkeesta kierrosten välissä.
+HTTPS-osoitteessa tai localhostissa peli tallentaa onnistuneen ensimmäisen latauksen jälkeen koko pelipaketin offline-käyttöön. Tuettu selain voi tarjota asennusta aloitusnäytölle. Valmiista päivityksestä kerrotaan näytön yläreunan ilmoituspalkissa, joka näkyy ilman vierittämistä. Kierroksen aikana ilmoitus on tiedoksi; uusi versio otetaan käyttöön päivityspainikkeesta kierrosten välissä.
 
 Ennätys ja asetukset säilyvät vain oman selaimen paikallisessa tallennustilassa. Sivustotietojen tyhjentäminen poistaa ne. Pelissä ei ole kirjautumista, analytiikkaa, yhteistä pistetaulukkoa tai pelitietoja vastaanottavaa palvelinta.
 

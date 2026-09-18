@@ -190,7 +190,7 @@ export class GameAudio {
     const notes = {
       bounce: [420, 700, .085], satsuma: [530, 1250, .24],
       trap: [180, 90, .18], tap: [340, 410, .035],
-      release: [450, 960, .17], slip: [210, 80, .2], over: [280, 70, .42],
+      release: [450, 960, .17], slip: [210, 80, .2], over: [330, 220, 1.08],
       gull: [700, 400, .1],
     };
     const note = notes[event];
@@ -202,11 +202,24 @@ export class GameAudio {
     const gain = context.createGain();
     oscillator.type = isKvlt(theme) ? 'sawtooth' : 'triangle';
     const pitch = isKvlt(theme) ? .55 : 1;
-    oscillator.frequency.setValueAtTime(from * pitch, start);
-    oscillator.frequency.exponentialRampToValueAtTime(to * pitch, start + duration);
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(isKvlt(theme) ? .027 : .065, start + .007);
-    gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+    const volume = isKvlt(theme) ? .027 : .065;
+    if (event === 'over') {
+      // Three separated descending notes: short "di-dy", then a sustained "dyy".
+      for (const [frequency, offset, length] of [[from, 0, .18], [277, .23, .18], [to, .46, .62]]) {
+        const noteStart = start + offset;
+        oscillator.frequency.setValueAtTime(frequency * pitch, noteStart);
+        gain.gain.setValueAtTime(0, noteStart);
+        gain.gain.linearRampToValueAtTime(volume, noteStart + .007);
+        gain.gain.exponentialRampToValueAtTime(volume * .72, noteStart + length * .55);
+        gain.gain.exponentialRampToValueAtTime(.0001, noteStart + length);
+      }
+    } else {
+      oscillator.frequency.setValueAtTime(from * pitch, start);
+      oscillator.frequency.exponentialRampToValueAtTime(to * pitch, start + duration);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(volume, start + .007);
+      gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+    }
     oscillator.connect(gain).connect(this.effectsGain);
     oscillator.start(start);
     oscillator.stop(start + duration + .015);

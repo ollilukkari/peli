@@ -292,6 +292,32 @@ test('the starting ledge stays centered and generated widths use the ten-percent
   }
 });
 
+test('new ledges narrow by ten percent at each actual 250 m boundary and stop at 70 px', () => {
+  const baseWidth = createGame(0).platforms[1].width;
+  function firstLedgeAt(meters) {
+    const game = emptyGame();
+    // The first opening gap of seed zero requires the 72 px fruit clearance.
+    // Its final height must decide the width even when that correction crosses a boundary.
+    game.randomState = 0;
+    game.generationIndex = 0;
+    game.generatedTopY = game.startY + meters * PHYSICS.pixelsPerMeter - 72;
+    game.generatedCenterX = WIDTH / 2;
+    game.generatedSafeWidth = PHYSICS.safeWidth;
+    game.generatedSatsumaX = null;
+    game.camera = game.generatedTopY - 100;
+    Object.assign(game.player, { y: game.generatedTopY + 250, vy: 0, state: 'trapped' });
+    stepGame(game, DT);
+    return { game, ledge: game.platforms[0] };
+  }
+  for (const [meters, factor] of [[249.99, 1], [250, .9], [250.01, .9],
+    [499.99, .9], [500, .81], [500.01, .81], [750, .729]]) {
+    const { game, ledge } = firstLedgeAt(meters);
+    assert.ok(Math.abs((ledge.y - game.startY) / PHYSICS.pixelsPerMeter - meters) < 1e-9);
+    assert.ok(Math.abs(ledge.width - baseWidth * factor) < 1e-9, `${meters} m`);
+  }
+  for (const meters of [2000, 2500, 10000]) assert.equal(firstLedgeAt(meters).ledge.width, 70);
+});
+
 test('many generated routes have reachable gaps and an unobstructed landing patch', () => {
   const jumpHeight = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
   for (let seed = 0; seed < 1500; seed += 1) {
@@ -325,10 +351,21 @@ test('generation remains bounded and reachable late in a run', () => {
   const game = createGame(791);
   startGame(game);
   for (let rise = 500; rise <= 25000; rise += 500) {
+    const existing = new Map(game.platforms.map(({ id, x, y, width }) => [id, { x, y, width }]));
     game.camera = rise;
     Object.assign(game.player, { y: rise + 250, vy: 0, state: 'trapped' });
     stepGame(game, DT);
     assert.ok(game.platforms.length < 30);
+    for (const platform of game.platforms) {
+      assert.ok(platform.width >= 70);
+      assert.ok(platform.safeWidth >= 5.6 - 1e-9);
+      assert.ok(platform.safeX - platform.safeWidth / 2 - PHYSICS.playerWidth / 2 >= platform.x);
+      assert.ok(platform.safeX + platform.safeWidth / 2 + PHYSICS.playerWidth / 2 <= platform.x + platform.width);
+      if (existing.has(platform.id)) {
+        assert.deepEqual({ x: platform.x, y: platform.y, width: platform.width }, existing.get(platform.id),
+          'existing ledges keep their geometry as the score increases');
+      }
+    }
     for (let index = 1; index < game.platforms.length; index += 1) {
       const previous = game.platforms[index - 1];
       const next = game.platforms[index];
@@ -684,6 +721,62 @@ test('many seeds and incoming directions preserve geometry and leave chain fruit
       }
     }
   }
+});
+
+test('late narrow routes retain hazards and offer real satsuma continuations in every incoming direction', () => {
+  let narrowTargets = 0;
+  let sharedTargets = 0;
+  const itemTypes = new Set();
+  for (let seed = 0; seed < 100; seed++) {
+    const route = withoutGulls(createGame(seed));
+    startGame(route);
+    for (const altitude of [8500, 18000, 30000]) {
+      for (let height = route.camera + 500; height <= altitude + 500; height += 500) {
+        route.camera = height;
+        Object.assign(route.player, { y: height + 250, vy: 0, state: 'trapped' });
+        stepGame(route, DT);
+      }
+      for (const platform of route.platforms) {
+        if (platform.width === 70 && platform.item) itemTypes.add(platform.item.type);
+      }
+      const sources = route.platforms.filter((platform) => platform.item?.type === 'satsuma'
+        && platform.y < route.camera + HEIGHT);
+      for (const source of sources) {
+        for (const vx of [-PHYSICS.maxSpeed, 0, PHYSICS.maxSpeed]) {
+          for (const offset of [-20, 0, 20]) {
+            const game = structuredClone(route);
+            const geometry = game.platforms.map(({ id, x, y, width }) => ({ id, x, y, width }));
+            const hazards = game.platforms.filter((platform) => ['trap', 'poop'].includes(platform.item?.type))
+              .map((platform) => ({ id: platform.id, item: structuredClone(platform.item) }));
+            game.camera = source.y - 180;
+            Object.assign(game.player, { x: Math.max(11, Math.min(WIDTH - 11, source.item.x + offset)),
+              y: source.y + .1, vy: -60, vx, state: 'air' });
+            stepGame(game, DT, vx / PHYSICS.maxSpeed);
+            assert.equal(game.satsumaStreak, 1);
+            const target = game.platforms.find((platform) => platform.id === game.chainTargetId);
+            const fruit = [target.item, target.chainSatsuma].find((item) => item?.type === 'satsuma' && !item.used);
+            assert.ok(target.y > source.y && fruit);
+            if (target.width < 94) narrowTargets++;
+            if (target.chainSatsuma && target.item && !target.item.used) {
+              assert.ok(Math.abs(target.chainSatsuma.x - target.item.x) >= (target.width < 94 ? 34 : 45));
+              sharedTargets++;
+            }
+            for (const platform of game.platforms) {
+              const before = geometry.find((entry) => entry.id === platform.id);
+              if (before) assert.deepEqual({ id: platform.id, x: platform.x, y: platform.y, width: platform.width }, before);
+            }
+            for (const hazard of hazards) {
+              const retained = game.platforms.find((platform) => platform.id === hazard.id);
+              if (retained) assert.deepEqual(retained.item, hazard.item);
+            }
+            if (seed % 25 === 0 && vx === 0 && offset === 0) assert.equal(takeChainJump(game).satsumaStreak, 2);
+          }
+        }
+      }
+    }
+  }
+  assert.ok(narrowTargets > 0 && sharedTargets > 0);
+  assert.deepEqual([...itemTypes].sort(), ['poop', 'satsuma', 'trap'], 'all generated item types remain on 70 px ledges');
 });
 
 test('normal generation reserves fruit headroom before platforms become visible', () => {
