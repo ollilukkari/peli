@@ -1,4 +1,4 @@
-# Pupun ponppu peli
+# Pupun pomputtelu peli
 
 Puhelimen pystyasentoon suunniteltu selainpeli, jossa valkoinen pupu pomppii kohti pilviä. Tietokoneella pelialue säilyttää saman pystysuuntaisen kuvasuhteen.
 
@@ -25,9 +25,9 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 - **Lokki:** sik-sak lentävään lokkiin osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise satsumaketjua.
 - **Tauko:** paina taukopainiketta tai Escapea. Taustalle siirtyminen keskeyttää kierroksen.
 
-Alareunaan putoaminen päättää kierroksen. Pisteet mittaavat edettyä matkaa. Niitty, syksyinen Ruska ja sinimustaan talviyöhön sijoittuva Talvi käyttävät samaa vaikeutta ja pelimekaniikkaa. Ruskan pupulla on tummanoranssi pipo. Pelin ympäristö sävyttyy valitun maailman mukaan. Komboilmoitukset pysyvät pelialueen alapuoliskolla.
+Alareunaan putoaminen päättää kierroksen. Pisteet mittaavat edettyä matkaa. Kesä, syksyinen Ruska ja sinimustaan talviyöhön sijoittuva Talvi käyttävät samaa vaikeutta ja pelimekaniikkaa. Ruskan pupulla on tummanoranssi pipo. Pelin ympäristö sävyttyy valitun maailman mukaan. Komboilmoitukset pysyvät pelialueen alapuoliskolla.
 
-Niityn oletusmusiikki on **Summer Platformer**, Ruskan **Kalm Mjörk** ja Talven **Frozen Minor — Reduced Low End**. Musiikki vaihtuu jo päävalikossa maailmaa valittaessa ja jatkuu kierroksen alkaessa. Selain sallii äänen ensimmäisen painalluksen jälkeen. Tauko pysäyttää musiikin samaan kohtaan; kierroksen päättyessä kappale palaa alkuun. Taukopainikkeen viereinen nuottipainike (**Music off / Music on**) mykistää vain musiikin. Äänipainike mykistää kaikki äänet. Molemmat asetukset tallentuvat selaimeen. Alkuperäinen Kvltist-maailma säilyy koodissa mutta on piilotettu valikosta; sen aiempi tallennettu valinta avaa Talven.
+Kesän oletusmusiikki on **Summer Platformer**, Ruskan **Kalm Mjörk** ja Talven **Frozen Minor — Reduced Low End**. Musiikki vaihtuu jo päävalikossa maailmaa valittaessa ja jatkuu kierroksen alkaessa. Selain sallii äänen ensimmäisen painalluksen jälkeen. Tauko pysäyttää musiikin samaan kohtaan. Musiikki jatkuu RIP-ruudussa, uusintakierroksella ja valikkoon palatessa; kappale vaihtuu ja alkaa alusta vasta vuodenaikaa vaihdettaessa. Taukopainikkeen viereinen nuottipainike (**Music off / Music on**) mykistää vain musiikin. Äänipainike mykistää kaikki äänet. Molemmat asetukset tallentuvat selaimeen. Alkuperäinen Kvltist-maailma säilyy koodissa mutta on piilotettu valikosta; sen aiempi tallennettu valinta avaa Talven.
 
 ## Offline ja asennus
 

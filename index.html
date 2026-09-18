@@ -9,13 +9,13 @@
     <link rel="apple-touch-icon" href="./assets/icon-192.png">
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="stylesheet" href="./style.css">
-    <title>Pupun ponppu peli</title>
+    <title>Pupun pomputtelu peli</title>
   </head>
   <body data-theme="meadow">
     <header class="site-header">
-      <a class="brand" href="./" aria-label="Pupun ponppu peli, etusivu">
+      <a class="brand" href="./" aria-label="Pupun pomputtelu peli, etusivu">
         <img src="./assets/icon.svg" alt="" width="42" height="42">
-        <span>PONPPU</span>
+        <span>POMPUTTELU</span>
       </a>
       <button class="quiet-button" id="install" hidden>Asenna peli <span aria-hidden="true">↗</span></button>
     </header>
@@ -31,7 +31,7 @@
         <p class="desktop-hint"><kbd>Esc</kbd> tauko<br><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> tai <kbd>välilyönti</kbd> tökkäisy ansassa</p>
       </aside>
 
-      <section class="game-column" aria-label="Pupun ponppu peli">
+      <section class="game-column" aria-label="Pupun pomputtelu peli">
         <div class="game-frame" id="game-frame" data-phase="ready" data-theme="meadow">
           <canvas id="game" width="360" height="640" tabindex="0" aria-label="Pystysuuntainen pomppupeli. Ohjaa vasemmalla ja oikealla nuolella tai vedä sormea pelialueen alemmalla puoliskolla. Vapauta ansasta neljällä erillisellä napautuksella, nuolinäppäimen tai välilyönnin painalluksella."></canvas>
           <div class="hud">
@@ -45,13 +45,13 @@
 
           <div id="menu" class="overlay menu">
             <div class="menu-card">
-              <h1>PUPUN<br><span>PONPPU</span><br>PELI</h1>
+              <h1>PUPUN<br><span>POMPUTTELU</span><br>PELI</h1>
               <div class="theme-select" role="group" aria-label="Valitse maailma">
-                <button data-theme-choice="meadow" aria-pressed="true"><span aria-hidden="true">☀</span> Niitty</button>
+                <button data-theme-choice="meadow" aria-pressed="true"><span aria-hidden="true">☀</span> Kesä</button>
                 <button data-theme-choice="autumn" aria-pressed="false"><span aria-hidden="true">❧</span> Ruska</button>
                 <button data-theme-choice="winter" aria-pressed="false"><span aria-hidden="true">❄</span> Talvi</button>
               </div>
-              <button class="primary-button" id="start">Aloita ponppu <span aria-hidden="true">↗</span></button>
+              <button class="primary-button" id="start">Pompitaan! <span aria-hidden="true">↗</span></button>
               <p class="record-line">OMA ENNÄTYS <strong><span class="best-score">0</span> m</strong></p>
             </div>
             <div class="start-tip" id="start-tip">Kosketa ja vedä alaosassa <span aria-hidden="true">↔</span></div>
@@ -66,7 +66,7 @@
           <div id="trap-notice" class="trap-notice" hidden><strong>TÖKI!</strong><span class="trap-dots" id="trap-dots" aria-hidden="true">○ ○ ○ ○</span></div>
           <div class="bottom-line" aria-hidden="true"></div>
         </div>
-        <div class="under-game"><span id="mode-label">NIITTY</span><span id="connection-status"></span></div>
+        <div class="under-game"><span id="mode-label">KESÄ</span><span id="connection-status"></span></div>
         <div id="update-notice" class="update-notice" hidden><span>Uusi versio on valmis.</span><button id="update">Päivitä peli</button></div>
         <p id="storage-notice" class="storage-notice" hidden>Selain ei salli tallennusta. Ennätys ja asetukset säilyvät vain tämän käynnin ajan.</p>
       </section>

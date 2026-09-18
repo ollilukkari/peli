@@ -116,6 +116,6 @@ server.on('error', (error) => {
   process.exitCode = 1;
 });
 server.listen(port, host, () => {
-  console.log(`Pupun ponppu peli: http://${host.includes(':') ? `[${host}]` : host}:${port}`);
+  console.log(`Pupun pomputtelu peli: http://${host.includes(':') ? `[${host}]` : host}:${port}`);
   console.log('Sulje palvelin painamalla Ctrl+C.');
 });

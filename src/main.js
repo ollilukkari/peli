@@ -76,7 +76,7 @@ function setTheme(theme) {
   document.querySelectorAll('[data-theme-choice]').forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.themeChoice === theme));
   });
-  $('#mode-label').textContent = { meadow: 'NIITTY', autumn: 'RUSKA', winter: 'TALVI' }[theme];
+  $('#mode-label').textContent = { meadow: 'KESÄ', autumn: 'RUSKA', winter: 'TALVI' }[theme];
   const surfaceColor = { meadow: '#e6edda', autumn: '#efdbb6', kvlt: '#242034', winter: '#101d30' }[theme];
   document.documentElement.style.backgroundColor = surfaceColor;
   $('meta[name="theme-color"]').setAttribute('content', surfaceColor);

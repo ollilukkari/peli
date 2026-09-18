@@ -96,7 +96,6 @@ export class GameAudio {
       this.musicElement.pause();
       if (this.musicRequest) this.musicGeneration++;
       this.musicRequest = null;
-      if (this.phase === 'over') this.musicElement.currentTime = 0;
       return;
     }
     if (this.musicRequest || !this.musicElement.paused) return;
@@ -105,10 +104,7 @@ export class GameAudio {
     this.musicElement.play().then(() => {
       if (this.musicRequest === request) this.musicRequest = null;
       // A delayed play result never changes the scene or issues another play.
-      if (!this.wantsMusic()) {
-        this.musicElement.pause();
-        if (this.phase === 'over') this.musicElement.currentTime = 0;
-      }
+      if (!this.wantsMusic()) this.musicElement.pause();
     }, (error) => {
       if (request.generation !== this.musicGeneration) return;
       if (this.musicRequest === request) this.musicRequest = null;
@@ -124,7 +120,7 @@ export class GameAudio {
     const contextAvailable = this.context?.state === 'running'
       || (this.contextResume && ['suspended', 'interrupted'].includes(this.context?.state));
     return Boolean(this.musicTrack && this.enabled && this.musicEnabled && !this.musicFailed
-      && ['ready', 'playing'].includes(this.phase) && contextAvailable);
+      && ['ready', 'playing', 'over'].includes(this.phase) && contextAvailable);
   }
 
   play(event, theme = 'meadow') {

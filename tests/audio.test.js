@@ -236,7 +236,7 @@ test('Kvlt shares the Winter track without restarting it and unknown themes have
   assert.equal(app.media.plays.length, 1);
 });
 
-test('pause preserves playback time, resume continues it and game over resets it', async () => {
+test('explicit pause preserves playback time and resume continues from that position', async () => {
   const app = application();
   await app.start('winter', 'playing');
   app.media.currentTime = 37.25;
@@ -247,19 +247,86 @@ test('pause preserves playback time, resume continues it and game over resets it
   app.audio.setScene('winter', 'playing');
   assert.equal(app.media.plays.at(-1).time, 37.25);
   await flush();
-  app.audio.setScene('winter', 'over');
-  assert.equal(app.media.paused, true);
-  assert.equal(app.media.currentTime, 0);
+  assert.equal(app.media.paused, false);
+  assert.equal(app.media.currentTime, 37.25);
   app.audio.setScene('winter', 'ready');
-  assert.equal(app.media.plays.at(-1).time, 0);
+  assert.equal(app.media.plays.at(-1).time, 37.25);
+  assert.equal(app.media.plays.length, 2);
   assert.equal(app.media.loads.length, 1);
+});
+
+test('each season keeps playing through game over, restart and menu without pause or reload', async () => {
+  for (const [theme, track] of [['meadow', summer], ['autumn', autumn], ['winter', winter]]) {
+    const app = application();
+    await app.start(theme, 'playing');
+    app.media.currentTime = 37.25;
+    const pauses = app.media.pauseCalls;
+    for (const phase of ['over', 'playing', 'over', 'ready', 'playing']) {
+      app.audio.setScene(theme, phase);
+      app.audio.unlock();
+      assert.equal(app.media.paused, false, `${theme}/${phase}`);
+      assert.equal(app.media.currentTime, 37.25, `${theme}/${phase}`);
+      assert.equal(app.media.src, track);
+      assert.equal(app.audio.musicGain.gain.value, 0.3);
+    }
+    assert.equal(app.media.pauseCalls, pauses);
+    assert.equal(app.media.plays.length, 1);
+    assert.equal(app.media.loads.length, 1);
+  }
+});
+
+test('pending play and context resume survive game over and restart without extra players', async () => {
+  for (const initialState of ['running', 'suspended']) {
+    const app = application({ initialState, delayedPlay: true });
+    await app.start('winter', 'playing');
+    app.media.currentTime = 16;
+    app.audio.setScene('winter', 'over');
+    app.media.finishPlay();
+    await flush();
+    assert.equal(app.media.paused, false);
+    assert.equal(app.media.currentTime, 16);
+    app.audio.setScene('winter', 'playing');
+    app.audio.setScene('winter', 'over');
+    if (initialState === 'suspended') app.context.finishResume();
+    await flush();
+    app.audio.setScene('winter', 'ready');
+    app.audio.setScene('winter', 'playing');
+    assert.equal(app.media.paused, false);
+    assert.equal(app.media.currentTime, 16);
+    assert.equal(app.media.plays.length, 1);
+    assert.equal(app.media.loads.length, 1);
+    assert.equal(app.elements.length, 1);
+    assert.equal(app.context.mediaSources.length, 1);
+  }
+});
+
+test('muting at game over preserves the position even when an earlier play completes later', async () => {
+  for (const control of ['setEnabled', 'setMusicEnabled']) {
+    const app = application({ delayedPlay: true });
+    await app.start('autumn', 'playing');
+    app.media.currentTime = 24.5;
+    app.audio[control](false);
+    app.audio.setScene('autumn', 'over');
+    app.media.finishPlay();
+    await flush();
+    assert.equal(app.media.paused, true);
+    assert.equal(app.media.currentTime, 24.5);
+    assert.equal(app.audio.musicGain.gain.value, 0);
+    app.audio[control](true);
+    assert.equal(app.media.plays.at(-1).time, 24.5);
+    app.media.finishPlay();
+    await flush();
+    app.audio.setScene('autumn', 'playing');
+    assert.equal(app.media.currentTime, 24.5);
+    assert.equal(app.media.plays.length, 2);
+    assert.equal(app.media.loads.length, 1);
+  }
 });
 
 const stopTransitions = [
   ['master mute', (audio) => audio.setEnabled(false)],
   ['music mute', (audio) => audio.setMusicEnabled(false)],
   ['pause', (audio) => audio.setScene('meadow', 'paused')],
-  ['game over', (audio) => audio.setScene('meadow', 'over')],
   ['unknown theme', (audio) => audio.setScene('unknown', 'ready')],
 ];
 
