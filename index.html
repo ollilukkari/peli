@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#eee9db">
+    <meta name="description" content="Pieni pupu, iso seikkailu. Söpö pikselipeli puhelimelle ja tietokoneelle.">
+    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./assets/icon-192.png">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="stylesheet" href="./style.css">
+    <title>Pupun ponppu peli</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Pupun ponppu peli, etusivu">
+        <img src="./assets/icon.svg" alt="" width="42" height="42">
+        <span>PONPPU</span>
+      </a>
+      <button class="quiet-button" id="install" hidden>Asenna peli <span aria-hidden="true">↗</span></button>
+    </header>
+
+    <main class="layout">
+      <aside class="intro">
+        <div class="howto">
+          <h2 class="guide-title">Ohjaus</h2>
+          <div class="instruction"><span class="step">01</span><p>Pupu pomppii itse.<br><strong>Sinä valitset suunnan.</strong></p></div>
+          <div class="instruction"><span class="step">02</span><p>Puhelimella vedä sormea<br><strong>ruudun alaosassa.</strong></p></div>
+          <div class="instruction"><span class="step">03</span><p>Tietokoneella käytä<br><kbd>←</kbd> <kbd>→</kbd> <span>nuolinäppäimiä.</span></p></div>
+        </div>
+        <p class="desktop-hint"><kbd>Esc</kbd> tauko<br><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> tai <kbd>välilyönti</kbd> tökkäisy ansassa</p>
+      </aside>
+
+      <section class="game-column" aria-label="Pupun ponppu peli">
+        <div class="game-frame" id="game-frame" data-phase="ready" data-theme="meadow">
+          <canvas id="game" width="360" height="640" tabindex="0" aria-label="Pystysuuntainen pomppupeli. Ohjaa vasemmalla ja oikealla nuolella tai vedä sormea pelialueen alemmalla puoliskolla. Vapauta ansasta neljällä erillisellä napautuksella, nuolinäppäimen tai välilyönnin painalluksella."></canvas>
+          <div class="hud">
+            <div class="scorebox"><span class="hud-label">MATKA</span><strong><span id="score">0</span><small> m</small></strong><span id="combo" class="combo-badge" hidden></span></div>
+            <div class="hud-actions">
+              <button id="sound" class="icon-button" aria-label="Mykistä äänet" aria-pressed="true" title="Äänet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM17 8c2 2 2 6 0 8M20 5c4 4 4 10 0 14"/></svg></button>
+              <button id="pause" class="icon-button" aria-label="Keskeytä peli" title="Tauko (Esc)" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
+            </div>
+          </div>
+
+          <div id="menu" class="overlay menu">
+            <div class="menu-card">
+              <h1>PUPUN<br><span>PONPPU</span><br>PELI</h1>
+              <div class="theme-select" role="group" aria-label="Valitse maailma">
+                <button data-theme-choice="meadow" aria-pressed="true"><span aria-hidden="true">☀</span> Niitty</button>
+                <button data-theme-choice="kvlt" aria-pressed="false"><span aria-hidden="true">☾</span> Kvltist</button>
+                <button data-theme-choice="winter" aria-pressed="false"><span aria-hidden="true">❄</span> Kvltist Winter</button>
+              </div>
+              <button class="primary-button" id="start">Aloita ponppu <span aria-hidden="true">↗</span></button>
+              <p class="record-line">OMA ENNÄTYS <strong><span class="best-score">0</span> m</strong></p>
+            </div>
+            <div class="start-tip" id="start-tip">Kosketa ja vedä alaosassa <span aria-hidden="true">↔</span></div>
+          </div>
+
+          <div class="overlay dialog-overlay" id="pause-panel" hidden>
+            <div class="dialog-card"><h2>Tauko</h2><button class="primary-button" id="resume">Jatka pomppimista <span aria-hidden="true">↗</span></button><button class="text-button" id="back-menu">Takaisin alkuun</button></div>
+          </div>
+          <div class="overlay dialog-overlay" id="over-panel" hidden>
+            <div class="dialog-card"><span class="pixel-tag" id="over-tag">HYVÄ POMPPU!</span><h2>RIP</h2><div class="result"><strong id="final-score">0</strong><span>METRIÄ</span></div><p>OMA ENNÄTYS <strong><span class="best-score">0</span> m</strong></p><button class="primary-button" id="restart">Ponpi lisää <span aria-hidden="true">↗</span></button><button class="text-button" id="change-world">Vaihda maailmaa</button></div>
+          </div>
+          <div id="trap-notice" class="trap-notice" hidden><strong>TÖKI!</strong><span class="trap-dots" id="trap-dots" aria-hidden="true">○ ○ ○ ○</span></div>
+          <div class="bottom-line" aria-hidden="true"></div>
+        </div>
+        <div class="under-game"><span id="mode-label">NIITTY</span><span id="connection-status"></span></div>
+        <div id="update-notice" class="update-notice" hidden><span>Uusi versio on valmis.</span><button id="update">Päivitä peli</button></div>
+        <p id="storage-notice" class="storage-notice" hidden>Selain ei salli tallennusta. Ennätys ja asetukset säilyvät vain tämän käynnin ajan.</p>
+      </section>
+
+      <aside class="field-guide">
+        <h2 class="guide-title">Esineet</h2>
+        <article class="guide-item"><svg class="item-art" viewBox="0 0 48 48" aria-hidden="true"><path fill="#558452" d="M23 12V5h5v7h9V6h-9v6z"/><path fill="#663c32" d="M14 12h20v4h5v7h4v14h-5v5H12v-5H7V22h4v-6h3z"/><path fill="#fba047" d="M15 16h18v4h5v16h-6v4H15v-4h-5V23h5z"/><path fill="#ffcf72" d="M16 20h7v5h-7z"/></svg><div><h3>Satsuma</h3><p>Pieni välipala.<br>Kolminkertainen hyppy.</p></div><span class="item-badge">3×</span></article>
+        <article class="guide-item"><svg class="item-art" viewBox="0 0 48 48" aria-hidden="true"><path fill="#72586b" d="M6 22h5v10h26V22h5v17H6zM12 14h5v11h-5zm9 3h6v11h-6zm10-3h5v11h-5z"/><path fill="#b69ba0" d="M10 34h28v4H10z"/></svg><div><h3>Ansaloukku</h3><p>Jalka jumissa?<br>Neljä napautusta auttaa.</p></div><span class="item-badge">4×</span></article>
+        <article class="guide-item"><svg class="item-art" viewBox="0 0 48 48" aria-hidden="true"><path fill="#674943" d="M22 7h7v9h5v8h6v7h4v9H5v-9h5v-7h6v-8h6z"/><path fill="#a27460" d="M23 12h4v7h-4zm-6 12h14v4H17zM10 33h26v3H10z"/><path fill="#fff5df" d="M19 29h4v4h-4zm10 0h4v4h-4z"/></svg><div><h3>Liukas yllätys</h3><p>Mitä kovempi vauhti,<br>sitä pidempi liuku.</p></div><span class="item-badge">↝</span></article>
+      </aside>
+    </main>
+    <p id="announcer" class="sr-only" role="status" aria-live="polite"></p>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

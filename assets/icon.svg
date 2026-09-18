@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" shape-rendering="crispEdges">
+  <title>Ponppu — white pixel bunny on a green background</title>
+  <rect width="192" height="192" rx="38" fill="#dbe9c5"/>
+  <path d="M0 142h24v-8h32v8h40v-12h40v8h32v-6h24v60H0z" fill="#acc99c"/>
+  <path d="M32 166h128v8H32z" fill="#749777"/>
+  <path d="M64 34h12v-4h8v4h4v62H64zm36-12h12v-4h8v4h4v74h-24z" fill="#62505a"/>
+  <path d="M68 38h12v-4h4v62H68zm36-12h12v-4h4v74h-16z" fill="#fffbee"/>
+  <path d="M72 46h8v42h-8zm36-12h8v54h-8z" fill="#eea9b2"/>
+  <path d="M48 132h16v24H44v-4h-4v-16h8z" fill="#62505a"/>
+  <path d="M48 136h12v16H44v-12h4z" fill="#fffbee"/>
+  <path d="M64 112h64v12h8v40H56v-40h8z" fill="#62505a"/>
+  <path d="M68 116h56v12h8v32H60v-32h8z" fill="#dcd6d8"/>
+  <path d="M68 116h52v12h8v28H64v-32h4z" fill="#fffbee"/>
+  <path d="M60 84h72v8h8v12h4v28h-8v8H56v-8h-8v-28h4V92h8z" fill="#62505a"/>
+  <path d="M60 88h72v8h4v12h4v20h-8v8H60v-8h-8v-20h4V96h4z" fill="#dcd6d8"/>
+  <path d="M60 88h72v8h4v28h-8v8H60v-8h-8v-16h4V96h4z" fill="#fffbee"/>
+  <path d="M72 100h8v4h4v12h-4v4h-8v-4h-4v-12h4zm40 0h8v4h4v12h-4v4h-8v-4h-4v-12h4z" fill="#493f4b"/>
+  <path d="M72 104h4v4h-4zm40 0h4v4h-4z" fill="#fffbee"/>
+  <path d="M78 112h3v3h-3zm40 0h3v3h-3z" fill="#cfb0a4"/>
+  <path d="M60 120h12v8H60zm60 0h12v8h-12z" fill="#f4bac1"/>
+  <path d="M92 116h8v4h-8z" fill="#eea9b2"/>
+  <path d="M96 120h4v8h-4zm-4 8h4v4h-4zm8 0h4v4h-4z" fill="#62505a"/>
+  <path d="M64 152h24v16H56v-12h8zm44 0h24v4h8v12h-32z" fill="#62505a"/>
+  <path d="M64 156h20v8H60v-4h4zm48 0h20v4h4v4h-24z" fill="#eea9b2"/>
+  <path d="M64 152h20v8H64zm48 0h16v8h-16z" fill="#fffbee"/>
+  <path d="M150 50h4v-8h4v8h8v4h-8v8h-4v-8h-4zm-122 42h4v-4h4v4h4v4h-4v4h-4v-4h-4z" fill="#fffbee"/>
+</svg>

@@ -1,0 +1,318 @@
+import { WIDTH, HEIGHT, createGame, startGame, stepGame, tapTrap, pauseGame, resumeGame } from './game.js';
+import { drawGame } from './render.js';
+import { GameAudio } from './audio.js';
+import { setupPwa } from './pwa.js';
+
+const $ = (selector) => document.querySelector(selector);
+const canvas = $('#game');
+const ctx = canvas.getContext('2d');
+const frame = $('#game-frame');
+const menu = $('#menu');
+const pausedPanel = $('#pause-panel');
+const overPanel = $('#over-panel');
+const trapNotice = $('#trap-notice');
+const keys = new Set();
+const tapKeys = new Set();
+const downPointers = new Set();
+const coarse = matchMedia('(pointer: coarse)');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const settingsKey = 'ponppu.settings.v1';
+const recordKey = 'ponppu.record.v1';
+let storageAvailable = true;
+
+function readStorage(key) {
+  try { return localStorage.getItem(key); }
+  catch { storageAvailable = false; return null; }
+}
+function writeStorage(key, value) {
+  try { localStorage.setItem(key, value); }
+  catch { storageAvailable = false; $('#storage-notice').hidden = false; }
+}
+let settings = { theme: 'meadow', sound: true };
+const storedSettings = readStorage(settingsKey);
+if (storedSettings) {
+  try {
+    const parsed = JSON.parse(storedSettings);
+    if (['meadow', 'kvlt', 'winter'].includes(parsed.theme)) settings.theme = parsed.theme;
+    if (typeof parsed.sound === 'boolean') settings.sound = parsed.sound;
+  } catch { /* Invalid saved preferences are discarded; physics never uses storage. */ }
+}
+const savedRecord = Number(readStorage(recordKey));
+let best = Number.isFinite(savedRecord) && savedRecord >= 0 ? Math.floor(savedRecord) : 0;
+$('#storage-notice').hidden = storageAvailable;
+const audio = new GameAudio(settings.sound);
+let game = createGame(20260918);
+let joystick = null;
+let accumulator = 0;
+let previousTime = 0;
+let updateReady = false;
+let wasTrapped = false;
+let deferredInstall = null;
+let lastScore = -1;
+let lastPhase = null;
+let lastTapCount = -1;
+let lastCombo = -1;
+let recordBeforeRound = best;
+
+function announce(message) { $('#announcer').textContent = message; }
+function saveSettings() { writeStorage(settingsKey, JSON.stringify(settings)); }
+function refreshBest() { document.querySelectorAll('.best-score').forEach((element) => { element.textContent = best; }); }
+function refreshSound() {
+  $('#sound').setAttribute('aria-pressed', String(settings.sound));
+  $('#sound').setAttribute('aria-label', settings.sound ? 'Mykistä äänet' : 'Ota äänet käyttöön');
+}
+function setTheme(theme) {
+  settings.theme = theme;
+  frame.dataset.theme = theme;
+  document.querySelectorAll('[data-theme-choice]').forEach((button) => {
+    button.setAttribute('aria-pressed', String(button.dataset.themeChoice === theme));
+  });
+  $('#mode-label').textContent = { meadow: 'NIITTY', kvlt: 'KVLTIST', winter: 'KVLTIST WINTER' }[theme];
+}
+function clearInput() {
+  keys.clear();
+  tapKeys.clear();
+  if (joystick && canvas.hasPointerCapture(joystick.id)) canvas.releasePointerCapture(joystick.id);
+  joystick = null;
+}
+function processEvents() {
+  for (const event of game.events.splice(0)) {
+    audio.play(event.type, settings.theme);
+    if (event.type === 'trap') {
+      clearInput();
+      announce('Jalka jäi ansaan. Napauta neljä kertaa tai paina nuolinäppäimiä tai välilyöntiä neljästi.');
+    }
+    if (event.type === 'satsuma') announce(`${game.bubble}. Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} satsuman kombo!` : ''}`);
+    if (event.type === 'release') announce('Vapaa!');
+    if (event.type === 'over') finishRound();
+  }
+}
+function startRound() {
+  clearInput();
+  downPointers.clear();
+  audio.unlock();
+  recordBeforeRound = best;
+  const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+  game = createGame(seed);
+  startGame(game);
+  accumulator = 0;
+  processEvents();
+  refreshUi();
+  canvas.focus({ preventScroll: true });
+  announce('Peli alkoi. Ohjaa pupua sivusuunnassa.');
+}
+function finishRound() {
+  clearInput();
+  const score = Math.floor(game.score);
+  if (score > best) {
+    best = score;
+    writeStorage(recordKey, String(best));
+  }
+  refreshBest();
+  $('#final-score').textContent = score;
+  $('#over-tag').textContent = score > recordBeforeRound ? 'UUSI OMA ENNÄTYS!' : 'HYVÄ POMPPU!';
+  announce(`Kierros päättyi. ${score} metriä. Oma ennätys ${best} metriä.`);
+  refreshUi();
+  $('#restart').focus({ preventScroll: true });
+}
+function showMenu() {
+  clearInput();
+  game = createGame(20260918);
+  accumulator = 0;
+  refreshUi();
+  $('#start').focus({ preventScroll: true });
+}
+function togglePause() {
+  if (game.phase === 'playing') {
+    pauseGame(game);
+    clearInput();
+    announce('Peli on tauolla.');
+    refreshUi();
+    $('#resume').focus({ preventScroll: true });
+  } else if (game.phase === 'paused') {
+    resumeGame(game);
+    accumulator = 0;
+    audio.unlock();
+    refreshUi();
+    canvas.focus({ preventScroll: true });
+    announce('Peli jatkuu.');
+  }
+}
+function refreshUi() {
+  const score = Math.floor(game.score);
+  if (score !== lastScore) { $('#score').textContent = score; lastScore = score; }
+  const combo = game.phase === 'playing' ? game.satsumaStreak : 0;
+  if (combo !== lastCombo) {
+    $('#combo').hidden = combo < 3;
+    $('#combo').textContent = combo >= 3 ? `${combo}× KOMBO` : '';
+    lastCombo = combo;
+  }
+  if (game.phase !== lastPhase) {
+    menu.hidden = game.phase !== 'ready';
+    pausedPanel.hidden = game.phase !== 'paused';
+    overPanel.hidden = game.phase !== 'over';
+    frame.dataset.phase = game.phase;
+    $('#pause').disabled = game.phase !== 'playing';
+    lastPhase = game.phase;
+  }
+  const trapped = game.phase === 'playing' && game.player.state === 'trapped';
+  if (trapped !== wasTrapped || game.trapTaps !== lastTapCount) {
+    trapNotice.hidden = !trapped;
+    if (trapped) {
+      $('#trap-dots').textContent = Array.from({ length: 4 }, (_, index) => index < game.trapTaps ? '●' : '○').join(' ');
+    }
+    wasTrapped = trapped;
+    lastTapCount = game.trapTaps;
+  }
+  // An update can only be accepted between rounds, never during play or a pause.
+  $('#update-notice').hidden = !updateReady || !['ready', 'over'].includes(game.phase);
+}
+
+$('#start').addEventListener('click', startRound);
+$('#restart').addEventListener('click', startRound);
+$('#pause').addEventListener('click', togglePause);
+$('#resume').addEventListener('click', togglePause);
+$('#back-menu').addEventListener('click', showMenu);
+$('#change-world').addEventListener('click', showMenu);
+$('#sound').addEventListener('click', () => {
+  settings.sound = !settings.sound;
+  audio.setEnabled(settings.sound);
+  refreshSound();
+  saveSettings();
+  if (game.phase === 'playing') canvas.focus({ preventScroll: true });
+});
+document.querySelectorAll('[data-theme-choice]').forEach((button) => {
+  button.addEventListener('click', () => { setTheme(button.dataset.themeChoice); saveSettings(); });
+});
+
+function pointFromEvent(event) {
+  const bounds = canvas.getBoundingClientRect();
+  return { x: (event.clientX - bounds.left) * WIDTH / bounds.width, y: (event.clientY - bounds.top) * HEIGHT / bounds.height };
+}
+canvas.addEventListener('pointerdown', (event) => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  if (downPointers.has(event.pointerId)) return;
+  downPointers.add(event.pointerId);
+  event.preventDefault();
+  const point = pointFromEvent(event);
+  if (game.phase === 'ready' && point.y >= HEIGHT / 2) startRound();
+  if (game.phase !== 'playing') return;
+  audio.unlock();
+  if (game.player.state === 'trapped') {
+    tapTrap(game);
+    processEvents();
+    refreshUi();
+    return; // The freeing tap is consumed; a fresh touch starts the next joystick.
+  }
+  if (point.y < HEIGHT / 2 || joystick !== null) return;
+  joystick = { id: event.pointerId, x: point.x, y: point.y, dx: 0, dy: 0 };
+  canvas.setPointerCapture(event.pointerId);
+  canvas.focus({ preventScroll: true });
+});
+canvas.addEventListener('pointermove', (event) => {
+  if (joystick?.id !== event.pointerId) return;
+  const point = pointFromEvent(event);
+  joystick.dx = Math.max(-52, Math.min(52, point.x - joystick.x));
+  joystick.dy = Math.max(-30, Math.min(30, point.y - joystick.y));
+});
+function endPointer(event) {
+  downPointers.delete(event.pointerId);
+  if (joystick?.id === event.pointerId) joystick = null;
+}
+window.addEventListener('pointerup', endPointer);
+window.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('lostpointercapture', endPointer);
+canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+window.addEventListener('keydown', (event) => {
+  if (event.code === 'Escape' && ['playing', 'paused'].includes(game.phase)) {
+    event.preventDefault();
+    if (!event.repeat) togglePause();
+    return;
+  }
+  if (game.phase !== 'playing') return;
+  // Preserve native keyboard activation while a UI control has focus.
+  if (event.target instanceof Element && event.target.closest('button, a, input, select, textarea, [contenteditable="true"]')) return;
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(event.code)) event.preventDefault();
+  const isTapKey = ['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.code);
+  if (game.player.state === 'trapped' && isTapKey) {
+    if (!event.repeat && !tapKeys.has(event.code)) {
+      tapKeys.add(event.code);
+      tapTrap(game);
+      processEvents();
+      refreshUi();
+    }
+    return;
+  }
+  // A key that freed the bunny must be released before it can steer again.
+  if (tapKeys.has(event.code)) return;
+  if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') keys.add(event.code);
+});
+window.addEventListener('keyup', (event) => { keys.delete(event.code); tapKeys.delete(event.code); });
+function pauseOnLeave() {
+  downPointers.clear();
+  clearInput();
+  if (game.phase === 'playing') togglePause();
+}
+window.addEventListener('blur', pauseOnLeave);
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseOnLeave(); });
+function refreshControlHint() {
+  $('#start-tip').innerHTML = coarse.matches ? 'Kosketa ja vedä alaosassa <span aria-hidden="true">↔</span>' : 'Ohjaa nuolinäppäimillä <span aria-hidden="true">← →</span>';
+}
+coarse.addEventListener('change', refreshControlHint);
+
+const pwa = setupPwa({
+  onUpdateReady() { updateReady = true; refreshUi(); },
+  onOfflineReady() { $('#connection-status').textContent = 'TOIMII MYÖS OFFLINE'; },
+  onStatus(status) { if (status.kind === 'error') $('#connection-status').textContent = 'OFFLINE EI VIELÄ VALMIS'; },
+});
+$('#update').addEventListener('click', async () => {
+  if (!['ready', 'over'].includes(game.phase)) return;
+  const button = $('#update');
+  button.disabled = true;
+  button.textContent = 'Päivitetään…';
+  if (!await pwa.applyUpdate()) { button.disabled = false; button.textContent = 'Yritä uudelleen'; }
+});
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault(); deferredInstall = event; $('#install').hidden = false;
+});
+$('#install').addEventListener('click', async () => {
+  if (!deferredInstall) return;
+  pauseOnLeave();
+  await deferredInstall.prompt();
+  await deferredInstall.userChoice;
+  deferredInstall = null;
+  $('#install').hidden = true;
+});
+window.addEventListener('appinstalled', () => { $('#install').hidden = true; deferredInstall = null; });
+
+function getAxis() {
+  if (keys.has('ArrowLeft') || keys.has('ArrowRight')) return Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'));
+  if (!joystick) return 0;
+  const delta = joystick.dx;
+  return Math.abs(delta) <= 5 ? 0 : Math.sign(delta) * Math.min(1, (Math.abs(delta) - 5) / 42);
+}
+function loop(milliseconds) {
+  const elapsed = previousTime === 0 ? 0 : (milliseconds - previousTime) / 1000;
+  previousTime = milliseconds;
+  if (game.phase === 'playing') {
+    // A suspended/overloaded browser must not fast-forward the bunny into a loss.
+    if (elapsed > .3) togglePause();
+    else {
+      accumulator += elapsed;
+      while (accumulator >= 1 / 120 && game.phase === 'playing') {
+        stepGame(game, 1 / 120, getAxis());
+        processEvents();
+        accumulator -= 1 / 120;
+      }
+    }
+  } else accumulator = 0;
+  drawGame(ctx, game, { theme: settings.theme, time: milliseconds / 1000, joystick, reducedMotion: reducedMotion.matches });
+  refreshUi();
+  requestAnimationFrame(loop);
+}
+setTheme(settings.theme);
+refreshSound();
+refreshBest();
+refreshControlHint();
+refreshUi();
+requestAnimationFrame(loop);
