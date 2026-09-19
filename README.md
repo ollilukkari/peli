@@ -44,6 +44,8 @@ Ennätys ja asetukset säilyvät vain oman selaimen paikallisessa tallennustilas
 
 ## Tarkistukset ja julkaisu
 
+Piirtäjä käyttää uudelleen muistissa olevia kuvia taivaasta, maisemista, tasoista ja koristeista. Välimuistin kuvapuskureiden laskennallinen enimmäiskoko on 8 MiB pelin canvasia kohti; selain voi käyttää lisäksi omaa grafiikkamuistia. Vanhimmat kuvat poistuvat tarpeen mukaan, joten pitkä kierros ei kasvata välimuistia rajatta. Liikkuvat hahmot ja tehosteet sekä pelin fysiikka päivittyvät entiseen tapaan.
+
 ```sh
 npm test
 ```

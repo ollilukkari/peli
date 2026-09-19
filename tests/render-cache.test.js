@@ -1,0 +1,207 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { createGame } from '../src/game.js';
+
+const renderSource = readFileSync(new URL('../src/render.js', import.meta.url), 'utf8')
+  .replaceAll('export ', '');
+
+function renderer() {
+  return vm.runInNewContext(`${renderSource}\n({
+    drawGame, drawBackground, drawCachedPlatform, drawPlatformScenery,
+    platformHash, palettes, cacheFor: (ctx) => artworkCaches.get(ctx),
+  });`, {}, { filename: 'src/render.js' });
+}
+
+// Record both the visible context and its offscreen canvases. Deliberately omit
+// global document: an embedded canvas must use its own ownerDocument.
+function recordingCanvas() {
+  const contexts = [];
+  const counters = { primitives: 0, offscreenPrimitives: 0 };
+  const document = {
+    createElement(tag) {
+      assert.equal(tag, 'canvas');
+      return makeCanvas(false);
+    },
+  };
+  function makeCanvas(visible) {
+    const calls = [];
+    const canvas = { width: 360, height: 640, ownerDocument: document };
+    const ctx = { canvas, calls, globalAlpha: 1, fillStyle: '#000' };
+    const states = [];
+    for (const name of ['fillRect', 'clearRect', 'beginPath', 'closePath', 'moveTo',
+      'lineTo', 'fill', 'stroke', 'arc', 'translate', 'scale', 'transform', 'fillText', 'drawImage']) {
+      ctx[name] = (...args) => {
+        calls.push({ name, args, fillStyle: ctx.fillStyle, alpha: ctx.globalAlpha });
+        if (['fillRect', 'fill', 'stroke', 'fillText'].includes(name)) {
+          counters.primitives += 1;
+          if (!visible) counters.offscreenPrimitives += 1;
+        }
+      };
+    }
+    ctx.save = () => states.push({ fillStyle: ctx.fillStyle, globalAlpha: ctx.globalAlpha });
+    ctx.restore = () => Object.assign(ctx, states.pop());
+    ctx.createLinearGradient = (...args) => ({
+      args, stops: [], addColorStop(...stop) { this.stops.push(stop); },
+    });
+    ctx.measureText = (text) => ({ width: text.length * 8 });
+    canvas.getContext = (kind) => {
+      assert.equal(kind, '2d');
+      return ctx;
+    };
+    contexts.push(ctx);
+    return canvas;
+  }
+  const ctx = makeCanvas(true).getContext('2d');
+  return { ctx, contexts, counters };
+}
+
+function imageCalls(ctx) {
+  return ctx.calls.filter(({ name }) => name === 'drawImage');
+}
+
+function lastImage(ctx) {
+  return imageCalls(ctx).at(-1).args[0];
+}
+
+test('a warmed platform reuses its artwork while its screen position changes', () => {
+  const render = renderer();
+  const { ctx, contexts, counters } = recordingCanvas();
+  const platform = { id: 17, x: 42.2, width: 128.3 };
+  const draw = (y) => render.drawCachedPlatform(ctx, platform, y, render.palettes.meadow, 'meadow', 42);
+  draw(220.2);
+  const image = lastImage(ctx);
+  const firstPosition = imageCalls(ctx).at(-1).args.slice(1);
+  const primitives = counters.primitives;
+  const canvasCount = contexts.length;
+  assert.ok(primitives > 10, 'the initial image must contain the platform artwork');
+
+  platform.x += 13;
+  draw(237.2);
+  assert.equal(lastImage(ctx), image);
+  assert.equal(contexts.length, canvasCount);
+  assert.equal(counters.primitives, primitives, 'a cached platform needs only drawImage');
+  const secondPosition = imageCalls(ctx).at(-1).args.slice(1);
+  assert.equal(secondPosition[0] - firstPosition[0], 13);
+  assert.equal(secondPosition[1] - firstPosition[1], 17);
+});
+
+test('platform artwork stays distinct across seasons, seeds, widths and platform identities', () => {
+  const render = renderer();
+  const { ctx } = recordingCanvas();
+  const draw = (theme = 'meadow', seed = 42, width = 128, id = 17) => {
+    render.drawCachedPlatform(ctx, { id, x: 40, width }, 200, render.palettes[theme], theme, seed);
+    return lastImage(ctx);
+  };
+  const initial = draw();
+  const images = [initial, draw('autumn'), draw('winter'), draw('kvlt'),
+    draw('meadow', 43), draw('meadow', 42, 129), draw('meadow', 42, 128, 18)];
+  assert.equal(new Set(images).size, images.length);
+  assert.equal(draw(), initial, 'switching back must restore the matching artwork');
+
+  const other = recordingCanvas();
+  render.drawCachedPlatform(other.ctx, { id: 17, x: 40, width: 128 }, 200, render.palettes.meadow, 'meadow', 42);
+  assert.notEqual(lastImage(other.ctx), initial, 'separate destination contexts own separate caches');
+});
+
+test('cached scenery still clears space for newly added or already eaten chain fruit', () => {
+  const render = renderer();
+  const { ctx } = recordingCanvas();
+  const seed = 42;
+  const platform = { id: 0, x: 80, width: 128, item: null };
+  while (platform.id < 100) {
+    render.drawPlatformScenery(ctx, platform, 240, 'meadow', seed);
+    if (imageCalls(ctx).length) break;
+    platform.id += 1;
+  }
+  assert.ok(imageCalls(ctx).length, 'fixture must have visible scenery');
+  const image = lastImage(ctx);
+  const detail = render.platformHash(seed, platform.id, 2);
+  const x = platform.x + 22 + (platform.width - 44) * (.16 + ((detail >>> 8) % 69) / 100);
+  for (const used of [false, true]) {
+    platform.chainSatsuma = { x, used };
+    ctx.calls.length = 0;
+    render.drawPlatformScenery(ctx, platform, 240, 'meadow', seed);
+    assert.equal(imageCalls(ctx).length, 0, `chain fruit with used=${used} must hide scenery`);
+  }
+  delete platform.chainSatsuma;
+  render.drawPlatformScenery(ctx, platform, 240, 'meadow', seed);
+  assert.equal(lastImage(ctx), image, 'unobstructed scenery can use the original cached image');
+  platform.item = { x, type: 'trap', used: true };
+  ctx.calls.length = 0;
+  render.drawPlatformScenery(ctx, platform, 240, 'meadow', seed);
+  assert.equal(imageCalls(ctx).length, 0, 'original items must keep their clearance too');
+});
+
+test('a long game keeps cached canvas pixels within the 8 MiB artwork budget', () => {
+  const render = renderer();
+  const { ctx } = recordingCanvas();
+  const draw = (id) => {
+    render.drawCachedPlatform(ctx, { id, x: 40, width: 128 }, 200, render.palettes.meadow, 'meadow', 42);
+    const cache = render.cacheFor(ctx);
+    const actualPixels = [...cache.entries.values()]
+      .reduce((sum, { canvas }) => sum + canvas.width * canvas.height, 0);
+    assert.equal(cache.pixels, actualPixels);
+    assert.ok(actualPixels * 4 <= 8 * 1024 * 1024);
+    const image = lastImage(ctx);
+    ctx.calls.length = 0;
+    return image;
+  };
+  const first = draw(0);
+  for (let id = 1; id < 2500; id += 1) draw(id);
+  const recent = draw(2499);
+  assert.equal(draw(2499), recent, 'recent artwork must survive cache pressure');
+  assert.notEqual(draw(0), first, 'old artwork must be regenerated after eviction');
+});
+
+for (const theme of ['meadow', 'autumn', 'winter', 'kvlt']) {
+  test(`${theme}: camera movement never allocates or repaints static background images`, () => {
+    const render = renderer();
+    const { ctx, contexts, counters } = recordingCanvas();
+    const game = { camera: 0 };
+    const options = { theme, time: 2, reducedMotion: false };
+    render.drawBackground(ctx, game, options, render.palettes[theme]);
+    const canvasesAfterWarmup = contexts.length;
+    const offscreenAfterWarmup = counters.offscreenPrimitives;
+    assert.ok(offscreenAfterWarmup > 0, 'the first background must build reusable artwork');
+
+    for (const camera of [.49, 500, 1000, 2500, 4000, 6000, 9000]) {
+      game.camera = camera;
+      options.time += 3.7;
+      render.drawBackground(ctx, game, options, render.palettes[theme]);
+      assert.equal(contexts.length, canvasesAfterWarmup,
+        `camera=${camera} must reuse existing background canvases`);
+      assert.equal(counters.offscreenPrimitives, offscreenAfterWarmup,
+        `camera=${camera} must not repaint static background artwork`);
+    }
+  });
+
+  test(`${theme}: repeated game frames reuse static artwork and leave the game model unchanged`, () => {
+    const render = renderer();
+    const { ctx, counters } = recordingCanvas();
+    const game = createGame(42);
+    const original = structuredClone(game);
+    const options = { theme, time: 2 };
+    render.drawGame(ctx, game, options);
+    const coldPrimitives = counters.primitives;
+    const offscreenAfterWarmup = counters.offscreenPrimitives;
+    assert.ok(offscreenAfterWarmup > 0, 'the first frame should build reusable artwork');
+
+    render.drawGame(ctx, game, options);
+    const warmPrimitives = counters.primitives - coldPrimitives;
+    assert.equal(counters.offscreenPrimitives, offscreenAfterWarmup,
+      'an identical frame must not repaint any cached artwork');
+    assert.ok(warmPrimitives < coldPrimitives, 'a warmed frame must submit fewer drawing primitives');
+    assert.deepEqual(game, original);
+
+    ctx.calls.length = 0;
+    render.drawGame(ctx, game, { ...options, time: 8 });
+    const animated = ctx.calls.map(({ name, args, alpha }) => [name, args, alpha]);
+    ctx.calls.length = 0;
+    render.drawGame(ctx, game, options);
+    const earlier = ctx.calls.map(({ name, args, alpha }) => [name, args, alpha]);
+    assert.notDeepEqual(animated, earlier, 'static artwork caching must preserve time-based animation');
+    assert.deepEqual(game, original);
+  });
+}
