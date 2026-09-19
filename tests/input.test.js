@@ -9,7 +9,7 @@ import * as core from '../src/game.js';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
   .replace(/^import .+;\r?\n/gm, '');
 
-function application({ autoStart = true, storedSettings = null } = {}) {
+function application({ autoStart = true, storedSettings = null, touch = false } = {}) {
   class Element {
     constructor(isControl = false) {
       this.isControl = isControl;
@@ -70,6 +70,7 @@ function application({ autoStart = true, storedSettings = null } = {}) {
     querySelectorAll: (selector) => selector === '[data-theme-choice]' ? [...themeButtons.values()] : [],
   });
   const window = new Element();
+  const pointerMedia = Object.assign(new Element(), { matches: touch });
   element('.intro').textContent = 'Shared desktop movement instructions';
   element('.field-guide').textContent = 'Shared desktop item instructions';
   const storage = new Map();
@@ -81,7 +82,7 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   let updateApplications = 0;
   const context = vm.createContext({
     ...core, Element, document, window,
-    matchMedia: () => Object.assign(new Element(), { matches: false }),
+    matchMedia: (query) => query === '(pointer: coarse)' ? pointerMedia : Object.assign(new Element(), { matches: false }),
     localStorage: { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
     crypto: { getRandomValues: (values) => { values[0] = 42; return values; } },
     GameAudio: class {
@@ -102,6 +103,7 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   const inspect = (expression) => vm.runInContext(expression, context);
   return {
     document, window, element, canvas, inspect, themeButtons, audioScenes, musicChanges, effectChanges,
+    setTouch(value) { pointerMedia.matches = value; pointerMedia.dispatch('change'); },
     announceUpdate: () => pwaCallbacks.onUpdateReady(),
     get updateApplications() { return updateApplications; },
     savedSettings: () => JSON.parse(storage.get('ponppu.settings.v1')),
@@ -524,4 +526,88 @@ test('petting animation advances with frozen physics, pauses on blur and clears 
   for (let time = 1300; time <= 2800; time += 100) app.inspect(`loop(${time})`);
   assert.equal(app.inspect('petEffects.hearts.length'), 0);
   assert.equal(app.game.time, worldTime);
+});
+
+
+test('ten separate left/right presses pet the creature with hearts and consume the freeing key', () => {
+  const app = application();
+  app.game.platforms[0].dog = { x: 180, petted: false };
+  Object.assign(app.game.player, { state: 'petting', platformId: 0 });
+  for (const code of ['ArrowUp', 'ArrowDown', 'Space']) {
+    app.key('keydown', code);
+    app.key('keyup', code);
+  }
+  assert.equal(app.game.dogStrokes, 0);
+  app.key('keydown', 'ArrowLeft');
+  app.key('keydown', 'ArrowLeft');
+  app.key('keydown', 'ArrowLeft', { repeat: true });
+  assert.equal(app.game.dogStrokes, 1);
+  assert.equal(app.axis(), 0);
+  app.key('keyup', 'ArrowLeft');
+  for (let i = 1; i < 9; i++) {
+    const code = i % 2 ? 'ArrowRight' : 'ArrowLeft';
+    app.key('keydown', code);
+    app.key('keyup', code);
+  }
+  assert.equal(app.game.player.state, 'petting');
+  app.key('keydown', 'ArrowRight');
+  assert.equal(app.game.dogStrokes, 10);
+  assert.equal(app.inspect('petEffects.hearts.length'), 10);
+  assert.equal(app.game.player.state, 'air');
+  assert.equal(app.element('#dog-notice').hidden, true);
+  app.key('keydown', 'ArrowRight', { repeat: true });
+  assert.equal(app.axis(), 0);
+  app.key('keyup', 'ArrowRight');
+  app.key('keydown', 'ArrowRight');
+  assert.equal(app.axis(), 1);
+});
+
+test('petting keyboard input respects focused controls and pause, and combines with swipes', () => {
+  const app = application();
+  app.game.platforms[0].dog = { x: 180, petted: false };
+  Object.assign(app.game.player, { state: 'petting', platformId: 0 });
+  app.element('#sound').focus();
+  app.key('keydown', 'ArrowLeft');
+  assert.equal(app.game.dogStrokes, 0);
+  app.canvas.focus();
+  app.key('keydown', 'ArrowLeft');
+  app.window.dispatch('blur');
+  app.key('keydown', 'ArrowRight');
+  assert.equal(app.game.dogStrokes, 1);
+  app.element('#resume').dispatch('click');
+  app.key('keydown', 'ArrowLeft', { repeat: true });
+  assert.equal(app.game.dogStrokes, 1);
+  app.key('keyup', 'ArrowLeft');
+  app.pointer('pointerdown', 1, 100, 400);
+  app.pointer('pointermove', 1, 150, 400);
+  app.pointer('pointerup', 1, 150, 400, app.window);
+  app.key('keydown', 'ArrowRight');
+  assert.equal(app.game.dogStrokes, 3);
+  assert.equal(app.inspect('petEffects.hearts.length'), 3);
+  assert.equal(app.axis(), 0);
+});
+
+test('control guidance and accessible event instructions follow the primary pointer', () => {
+  const app = application({ touch: true });
+  assert.equal(app.document.body.dataset.inputMode, 'touch');
+  assert.match(app.canvas.attributes.get('aria-label'), /sormea/);
+  assert.doesNotMatch(app.canvas.attributes.get('aria-label'), /nuol|hiir/i);
+  app.trap();
+  assert.match(app.element('#announcer').textContent, /Napauta/);
+  assert.doesNotMatch(app.element('#announcer').textContent, /näppä/);
+  app.game.events.push({ type: 'dog' });
+  app.inspect('processEvents()');
+  assert.match(app.element('#announcer').textContent, /pyyhkäisemällä/);
+  assert.doesNotMatch(app.element('#announcer').textContent, /hiir/i);
+  app.setTouch(false);
+  assert.equal(app.document.body.dataset.inputMode, 'keyboard');
+  assert.match(app.canvas.attributes.get('aria-label'), /nuol/);
+  assert.doesNotMatch(app.canvas.attributes.get('aria-label'), /sorm|napaut/);
+  app.trap();
+  assert.match(app.element('#announcer').textContent, /nuolinäppäimiä/);
+  assert.doesNotMatch(app.element('#announcer').textContent, /Napauta/);
+  app.game.events.push({ type: 'dog' });
+  app.inspect('processEvents()');
+  assert.match(app.element('#announcer').textContent, /vasenta tai oikeaa nuolta/);
+  assert.doesNotMatch(app.element('#announcer').textContent, /pyyhkäisemällä/);
 });
