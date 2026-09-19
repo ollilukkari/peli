@@ -2,16 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { createGame } from '../src/game.js';
+import { createGame, PHYSICS } from '../src/game.js';
 
 const renderSource = readFileSync(new URL('../src/render.js', import.meta.url), 'utf8')
+  .replace(/^import \{ PHYSICS \} from '\.\/game\.js';\r?\n/m, '')
   .replaceAll('export ', '');
 
 function renderer() {
   return vm.runInNewContext(`${renderSource}\n({
     drawGame, drawBackground, drawCachedPlatform, drawPlatformScenery,
     platformHash, palettes, cacheFor: (ctx) => artworkCaches.get(ctx),
-  });`, {}, { filename: 'src/render.js' });
+  });`, { PHYSICS }, { filename: 'src/render.js' });
 }
 
 // Record both the visible context and its offscreen canvases. Deliberately omit
@@ -153,6 +154,59 @@ test('a long game keeps cached canvas pixels within the 8 MiB artwork budget', (
   const recent = draw(2499);
   assert.equal(draw(2499), recent, 'recent artwork must survive cache pressure');
   assert.notEqual(draw(0), first, 'old artwork must be regenerated after eviction');
+});
+
+test('cached scenery leaves snack and Zab body stretches live without changing physics', () => {
+  for (const theme of ['meadow', 'autumn', 'winter', 'kvlt']) {
+    for (const launch of ['snack', 'zab']) {
+      const render = renderer();
+      const { ctx, contexts, counters } = recordingCanvas();
+      const game = createGame(42);
+      game.phase = 'playing';
+      game.time = 4.06;
+      game.player.state = launch === 'zab' ? 'pet-boost' : 'air';
+      game.player.vy = PHYSICS.jumpSpeed * PHYSICS.boostMultiplier - PHYSICS.gravity * 0.06;
+      if (launch === 'zab') {
+        game.petBoost = {
+          elapsed: PHYSICS.petBoostChargeDuration + PHYSICS.petBoostLaunchDuration / 2,
+          chargeDuration: PHYSICS.petBoostChargeDuration,
+          launchDuration: PHYSICS.petBoostLaunchDuration,
+        };
+      } else {
+        game.lastMealAt = 4;
+        game.lastLanding = { type: 'satsuma', time: 4, x: game.player.x, y: game.player.y };
+      }
+      const draw = () => {
+        ctx.calls.length = 0;
+        const original = structuredClone(game);
+        render.drawGame(ctx, game, { theme });
+        assert.deepEqual(game, original, `${theme}/${launch}: rendering must leave physics unchanged`);
+        // The final feet translation belongs to the bunny, after its optional halo.
+        const feet = [Math.round(game.player.x), Math.round(640 - (game.player.y - game.camera))];
+        const anchor = ctx.calls.findLastIndex(({ name, args }) => name === 'translate'
+          && args[0] === feet[0] && args[1] === feet[1]);
+        assert.ok(anchor >= 0, 'the live bunny must be anchored at its physics feet');
+        return ctx.calls.slice(anchor + 1).find(({ name, args }) => name === 'scale' && args[0] !== args[1]).args;
+      };
+      draw();
+      const canvasCount = contexts.length;
+      const offscreenPrimitives = counters.offscreenPrimitives;
+      const stretched = draw();
+      assert.ok(stretched[0] < 0.9 && stretched[1] > 1.3,
+        `${theme}/${launch}: an active launch must visibly narrow and lengthen the body`);
+
+      game.time = 4.5;
+      game.player.state = 'air';
+      game.player.vy = PHYSICS.jumpSpeed;
+      game.petBoost = null;
+      const relaxed = draw();
+      assert.ok(relaxed[0] > 0.95 && relaxed[1] < 1.15,
+        `${theme}/${launch}: the body must relax after the launch`);
+      assert.equal(contexts.length, canvasCount, 'live body animation must reuse static canvases');
+      assert.equal(counters.offscreenPrimitives, offscreenPrimitives,
+        'changing body stretch must not repaint cached scenery');
+    }
+  }
 });
 
 for (const theme of ['meadow', 'autumn', 'winter', 'kvlt']) {

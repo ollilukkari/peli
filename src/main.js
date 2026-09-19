@@ -12,6 +12,9 @@ const pausedPanel = $('#pause-panel');
 const overPanel = $('#over-panel');
 const trapNotice = $('#trap-notice');
 const helpDialog = $('#help-dialog');
+const creatureMode = new URLSearchParams(window.location.search).get('creature') === 'test' ? 'test' : 'release';
+$('#creature-test-notice').hidden = creatureMode !== 'test';
+$('.creature-interval').textContent = creatureMode === 'test' ? '200–300' : '2 000–3 000';
 // Both help surfaces share the same device-specific guide content.
 $('#help-content').append($('.intro').cloneNode(true), $('.field-guide').cloneNode(true));
 const keys = new Set();
@@ -47,7 +50,7 @@ const savedRecord = Number(readStorage(recordKey));
 let best = Number.isFinite(savedRecord) && savedRecord >= 0 ? Math.floor(savedRecord) : 0;
 $('#storage-notice').hidden = storageAvailable;
 const audio = new GameAudio(settings.sound, settings.music);
-let game = createGame(20260918);
+let game = createGame(20260918, { creatureMode });
 let joystick = null;
 let petGesture = null;
 let petEffects = { time: 0, hearts: [] };
@@ -124,6 +127,15 @@ function processEvents() {
     }
     if (event.type === 'satsuma') announce(`${game.bubble} Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} välipalan kombo!` : ''}`);
     if (event.type === 'release') announce('Vapaa!');
+    if (event.type === 'pet-boost') {
+      clearInput();
+      announce('Vihreä hehku! Pupu ampaisee 300 metriä ylöspäin!');
+    }
+    if (event.type === 'pet-boost-release') {
+      clearInput();
+      audio.play('release', settings.theme);
+      announce('Ampaisu valmis. Pompitaan!');
+    }
     if (event.type === 'slip') announce('Hyi kakkaa!');
     if (event.type === 'over') finishRound();
   }
@@ -135,7 +147,7 @@ function startRound() {
   audio.unlock();
   recordBeforeRound = best;
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
-  game = createGame(seed);
+  game = createGame(seed, { creatureMode });
   startGame(game);
   accumulator = 0;
   processEvents();
@@ -160,7 +172,7 @@ function finishRound() {
 function showMenu() {
   petEffects = { time: 0, hearts: [] };
   clearInput();
-  game = createGame(20260918);
+  game = createGame(20260918, { creatureMode });
   accumulator = 0;
   refreshUi();
   $('#start').focus({ preventScroll: true });
@@ -209,8 +221,17 @@ function refreshUi() {
     lastTapCount = game.trapTaps;
   }
   const petting = game.phase === 'playing' && game.player.state === 'petting';
+  const pet = petting ? game.platforms.find((platform) => platform.id === game.player.platformId).dog : null;
+  const boost = game.phase === 'playing' && game.player.state === 'pet-boost' ? game.petBoost : null;
+  audio.setPetting(pet?.kind === 'zab' ? 'zab' : null);
+  audio.setBoost(boost && boost.elapsed >= boost.chargeDuration
+    ? Math.min(1, (boost.elapsed - boost.chargeDuration) / boost.launchDuration) : null,
+  PHYSICS.petBoostLaunchDuration);
   $('#dog-notice').hidden = !petting;
-  if (petting) $('#dog-count').textContent = `${game.dogStrokes}/10`;
+  if (petting) {
+    $('#pet-title').textContent = 'Paijaa otusta';
+    $('#dog-count').textContent = `${game.dogStrokes}/${PHYSICS.dogStrokes}`;
+  }
   refreshUpdateNotice();
 }
 
@@ -286,6 +307,7 @@ canvas.addEventListener('pointerdown', (event) => {
   if (game.phase === 'ready' && point.y >= HEIGHT / 2) startRound();
   if (game.phase !== 'playing') return;
   audio.unlock();
+  if (game.player.state === 'pet-boost') return;
   if (game.player.state === 'petting') {
     if (!petGesture) {
       petGesture = { id: event.pointerId, anchor: point, direction: null };
@@ -307,19 +329,21 @@ canvas.addEventListener('pointerdown', (event) => {
 canvas.addEventListener('pointermove', (event) => {
   if (petGesture?.id === event.pointerId) {
     if (game.phase !== 'playing' || game.player.state !== 'petting') return;
+    const gesture = petGesture;
     const point = pointFromEvent(event);
-    const dx = point.x - petGesture.anchor.x;
-    const dy = point.y - petGesture.anchor.y;
+    const dx = point.x - gesture.anchor.x;
+    const dy = point.y - gesture.anchor.y;
     const distance = Math.hypot(dx, dy);
     if (distance < 32) return;
     const direction = { x: dx / distance, y: dy / distance };
-    const previous = petGesture.direction;
+    const previous = gesture.direction;
     // One stroke per deliberate direction; a long drag cannot count repeatedly.
     if (!previous || direction.x * previous.x + direction.y * previous.y < -0.5) {
       petOnce();
-      petGesture.direction = direction;
+      gesture.direction = direction;
     }
-    petGesture.anchor = point;
+    // Completing hamster petting clears input while the boost takes over movement.
+    gesture.anchor = point;
     return;
   }
   if (joystick?.id !== event.pointerId) return;
@@ -346,6 +370,7 @@ window.addEventListener('keydown', (event) => {
   // Preserve native keyboard activation while a UI control has focus.
   if (event.target instanceof Element && event.target.closest('button, a, input, select, textarea, [contenteditable="true"]')) return;
   if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(event.code)) event.preventDefault();
+  if (game.player.state === 'pet-boost') return;
   if (game.player.state === 'petting') {
     if (['ArrowLeft', 'ArrowRight'].includes(event.code) && !event.repeat && !tapKeys.has(event.code)) {
       tapKeys.add(event.code);
@@ -401,6 +426,7 @@ $('#install').addEventListener('click', async () => {
 window.addEventListener('appinstalled', () => { $('#install').hidden = true; deferredInstall = null; });
 
 function getAxis() {
+  if (game.player.state === 'pet-boost') return 0;
   if (keys.has('ArrowLeft') || keys.has('ArrowRight')) return Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'));
   if (!joystick) return 0;
   const delta = joystick.dx;

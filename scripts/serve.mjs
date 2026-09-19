@@ -9,7 +9,7 @@ const publicFiles = new Set([
   'src/main.js', 'src/game.js', 'src/render.js', 'src/audio.js', 'src/kvlt-music.js', 'src/pwa.js',
   'assets/icon.svg', 'assets/icon-192.png', 'assets/icon-512.png',
   'assets/audio/frozen-minor.mp3', 'assets/audio/summer-platformer.mp3',
-  'assets/audio/kalm-mjork.mp3',
+  'assets/audio/kalm-mjork.mp3', 'assets/audio/zab-petting.mp3',
 ]);
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',

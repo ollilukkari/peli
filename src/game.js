@@ -1,6 +1,11 @@
 export const WIDTH = 360;
 export const HEIGHT = 640;
 
+export const CREATURE_INTERVALS = Object.freeze({
+  test: Object.freeze([200, 300]),
+  release: Object.freeze([2000, 3000]),
+});
+
 export const PHYSICS = Object.freeze({
   gravity: 1500,
   jumpSpeed: 670,
@@ -17,6 +22,9 @@ export const PHYSICS = Object.freeze({
   trapTaps: 8,
   dogStrokes: 10,
   dogNearDistance: 38,
+  petBoostChargeDuration: 0.25,
+  petBoostLaunchDuration: 0.9375,
+  petBoostRiseMeters: 300,
   slipMultiplier: 1.2,
   slipDeceleration: 400 / 1.5,
   zeroSlipDuration: 0.22,
@@ -62,9 +70,8 @@ function insertPlatform(game, platform) {
   game.platforms.splice(index < 0 ? game.platforms.length : index, 0, platform);
 }
 
-function generatePlatforms(game) {
+function generatePlatforms(game, targetY = game.camera + HEIGHT + NORMAL_HEIGHT * 3) {
   // Enough headroom for the entire satsuma jump, including a fast camera follow.
-  const targetY = game.camera + HEIGHT + NORMAL_HEIGHT * 3;
   while (game.generatedTopY < targetY) {
     const difficulty = clamp((game.generatedTopY - game.startY) / 12000, 0, 1);
     const id = ++game.generationIndex;
@@ -125,11 +132,19 @@ function generatePlatforms(game) {
     const item = itemType ? { type: itemType,
       x: geometry.x + geometry.width / 2 + itemSide * (geometry.width / 2 - 15), used: false } : null;
 
-    const dog = y >= game.nextDogY
-      ? { x: geometry.x + geometry.width / 2, direction: 1, petted: false } : null;
-    if (dog) {
+    const dogDue = y >= game.nextDogY;
+    const creatureDue = y >= game.nextCreatureY;
+    // One shared petting encounter per ledge. A due creature replaces a due dog.
+    const dog = dogDue || creatureDue
+      ? { x: geometry.x + geometry.width / 2, direction: 1, petted: false,
+        ...(creatureDue ? { kind: 'zab' } : {}) } : null;
+    if (dogDue) {
       game.dogGenerationIndex += 1;
       game.nextDogY = y + dogInterval(game);
+    }
+    if (creatureDue) {
+      game.creatureGenerationIndex += 1;
+      game.nextCreatureY = y + creatureInterval(game);
     }
     insertPlatform(game, {
       dog,
@@ -154,11 +169,22 @@ function dogInterval(game) {
   return (1000 + fraction * 990) * PHYSICS.pixelsPerMeter;
 }
 
+function creatureInterval(game) {
+  // Its own indexed stream preserves both the platform RNG and dog schedule.
+  let value = game.seed ^ Math.imul(game.creatureGenerationIndex + 1, 0x7feb352d) ^ 0x61c88647;
+  value = Math.imul(value ^ (value >>> 16), 0x846ca68b);
+  const fraction = ((value ^ (value >>> 16)) >>> 0) / 4294967296;
+  const [minimum, maximum] = CREATURE_INTERVALS[game.creatureMode];
+  // Reserve 10 m for the next generated ledge so the actual gap stays in range.
+  return (minimum + fraction * (maximum - minimum - 10)) * PHYSICS.pixelsPerMeter;
+}
+
 function moveDogs(game) {
   for (const platform of game.platforms) {
     if (!platform.dog) continue;
-    const walk = reflectedPosition(game.time * 18, platform.width - 32);
-    platform.dog.x = platform.x + 16 + walk.position;
+    const margin = 16;
+    const walk = reflectedPosition(game.time * 18, platform.width - margin * 2);
+    platform.dog.x = platform.x + margin + walk.position;
     platform.dog.direction = walk.direction;
   }
 }
@@ -169,10 +195,58 @@ export function strokeDog(game) {
   if (game.dogStrokes === PHYSICS.dogStrokes) {
     const platform = game.platforms.find((entry) => entry.id === game.player.platformId);
     platform.dog.petted = true;
-    game.gullInvulnerableUntil = game.time + PHYSICS.gullCooldown;
-    bounce(game, 1, 'release');
+    if (platform.dog.kind === 'zab') startPetBoost(game, platform);
+    else {
+      game.gullInvulnerableUntil = game.time + PHYSICS.gullCooldown;
+      bounce(game, 1, 'release');
+    }
   }
   return true;
+}
+
+function startPetBoost(game, source) {
+  const player = game.player;
+  const targetY = player.y + PHYSICS.petBoostRiseMeters * PHYSICS.pixelsPerMeter;
+  generatePlatforms(game, targetY + HEIGHT + NORMAL_HEIGHT * 3);
+  // Match the next route ledge's safe patch so a normal jump can continue upward.
+  const targetX = game.platforms.find((platform) => platform.y > targetY).safeX;
+  const landingPlatformId = -(source.id + 1);
+  const landingX = clamp(targetX - 50, 8, WIDTH - 108);
+  insertPlatform(game, {
+    id: landingPlatformId, y: targetY, x: landingX, width: 100, safeX: targetX,
+    safeWidth: Math.min(PHYSICS.safeWidth, 2 * Math.min(targetX - landingX, landingX + 100 - targetX)),
+    item: null,
+  });
+  game.petBoost = {
+    elapsed: 0,
+    chargeDuration: PHYSICS.petBoostChargeDuration,
+    launchDuration: PHYSICS.petBoostLaunchDuration,
+    duration: PHYSICS.petBoostChargeDuration + PHYSICS.petBoostLaunchDuration,
+    fromX: player.x, fromY: player.y, targetX, targetY, landingPlatformId,
+  };
+  player.state = 'pet-boost';
+  player.platformId = null;
+  player.vx = 0;
+  player.vy = 0;
+  player.slipRemaining = 0;
+  emit(game, 'pet-boost');
+}
+
+function stepPetBoost(game, dt) {
+  const boost = game.petBoost;
+  boost.elapsed = Math.min(boost.duration, boost.elapsed + dt);
+  if (boost.duration - boost.elapsed < 1e-9) boost.elapsed = boost.duration;
+  const progress = clamp((boost.elapsed - boost.chargeDuration) / boost.launchDuration, 0, 1);
+  const lift = progress * progress * (3 - 2 * progress);
+  game.player.x = boost.fromX + (boost.targetX - boost.fromX) * lift;
+  game.player.y = boost.fromY + (boost.targetY - boost.fromY) * lift;
+  if (boost.elapsed === boost.duration) {
+    game.player.x = boost.targetX;
+    game.player.y = boost.targetY;
+    game.gullInvulnerableUntil = game.time + PHYSICS.gullCooldown;
+    game.petBoost = null;
+    bounce(game, 1, 'pet-boost-release');
+  }
 }
 
 function gullRandom(game, slot) {
@@ -235,7 +309,10 @@ function moveGulls(game, previousTime) {
   });
 }
 
-export function createGame(seed = Date.now()) {
+export function createGame(seed = Date.now(), { creatureMode = 'release' } = {}) {
+  if (!Object.hasOwn(CREATURE_INTERVALS, creatureMode)) {
+    throw new RangeError('Unknown creature mode');
+  }
   const initialY = 100;
   const initialWidth = (WIDTH - 48) * PLATFORM_WIDTH_SCALE;
   const game = {
@@ -281,13 +358,18 @@ export function createGame(seed = Date.now()) {
     },
     dogGenerationIndex: 0,
     nextDogY: 0,
+    creatureMode,
+    creatureGenerationIndex: 0,
+    nextCreatureY: 0,
     dogStrokes: 0,
+    petBoost: null,
     trapTaps: 0,
     bubble: null,
     bubbleUntil: 0,
     events: [],
   };
   game.nextDogY = initialY + dogInterval(game);
+  game.nextCreatureY = initialY + creatureInterval(game);
   generatePlatforms(game);
   game.nextGullY += gullRandom(game, 0) * 50;
   generateGulls(game);
@@ -638,6 +720,17 @@ export function stepGame(game, dt, axis = 0) {
 
   // The mandatory petting encounter freezes the world, including the lethal camera.
   if (game.player.state === 'petting') return;
+  // Stop at the exact endpoint and freeze lethal scrolling while the glow charges.
+  let scrollDt = dt;
+  let previousBoostY = null;
+  if (game.player.state === 'pet-boost') {
+    const boost = game.petBoost;
+    previousBoostY = game.player.y;
+    dt = Math.min(dt, boost.duration - boost.elapsed);
+    const previousLaunchTime = Math.max(0, boost.elapsed - boost.chargeDuration);
+    const nextLaunchTime = Math.max(0, boost.elapsed + dt - boost.chargeDuration);
+    scrollDt = nextLaunchTime - previousLaunchTime;
+  }
   const previousTime = game.time;
   game.time += dt;
   moveDogs(game);
@@ -645,13 +738,17 @@ export function stepGame(game, dt, axis = 0) {
   axis = clamp(axis, -1, 1);
   if (game.player.state === 'air') stepAir(game, dt, axis, gullPaths);
   else if (game.player.state === 'sliding') stepSlide(game, dt);
+  else if (game.player.state === 'pet-boost') stepPetBoost(game, dt);
 
   game.maxY = Math.max(game.maxY, game.player.y);
   game.score = Math.floor((game.maxY - game.startY) / PHYSICS.pixelsPerMeter);
   const difficulty = clamp((game.maxY - game.startY) / 12000, 0, 1);
   const speed = PHYSICS.scrollSpeed + (PHYSICS.maxScrollSpeed - PHYSICS.scrollSpeed) * difficulty;
-  if (game.player.state !== 'petting') {
-    game.camera = Math.max(game.camera + speed * dt, game.player.y - PHYSICS.followHeight);
+  if (game.player.state !== 'petting' && scrollDt > 0) {
+    // The launch eases in from rest; its protected bunny must never be overtaken.
+    const scrollDistance = previousBoostY === null ? speed * scrollDt
+      : Math.min(speed * scrollDt, Math.max(0, game.player.y - previousBoostY));
+    game.camera = Math.max(game.camera + scrollDistance, game.player.y - PHYSICS.followHeight);
   }
   if (game.bubble && game.time >= game.bubbleUntil) game.bubble = null;
 

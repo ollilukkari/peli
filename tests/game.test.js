@@ -974,9 +974,10 @@ test('gull flights are deterministic, sparse, bounded and independent of platfor
 });
 
 
-test('dogs recur at 1000–2000 m intervals and patrol inside their platforms', () => {
+test('dogs recur at 1000–2000 m intervals when no creature replaces them and patrol inside their platforms', () => {
   for (let seed = 0; seed < 20; seed++) {
     const game = withoutGulls(createGame(seed));
+    game.nextCreatureY = Infinity;
     startGame(game);
     let lastDogY = game.startY;
     const seen = new Set();

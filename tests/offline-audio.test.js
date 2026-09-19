@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
-const TRACKS = ['frozen-minor.mp3', 'summer-platformer.mp3', 'kalm-mjork.mp3'];
+const TRACKS = ['frozen-minor.mp3', 'summer-platformer.mp3', 'kalm-mjork.mp3', 'zab-petting.mp3'];
 const AUDIO_BYTES = Uint8Array.from({ length: 16 }, (_, index) => index * 13);
 
 function worker({ path = '/peli/', missing = null, audioBytes = AUDIO_BYTES } = {}) {

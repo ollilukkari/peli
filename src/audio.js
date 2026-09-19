@@ -2,6 +2,7 @@ const isKvlt = (theme) => theme === 'kvlt' || theme === 'winter';
 const summerTrack = new URL('../assets/audio/summer-platformer.mp3', import.meta.url).href;
 const autumnTrack = new URL('../assets/audio/kalm-mjork.mp3', import.meta.url).href;
 const winterTrack = new URL('../assets/audio/frozen-minor.mp3', import.meta.url).href;
+const zabPettingTrack = new URL('../assets/audio/zab-petting.mp3', import.meta.url).href;
 const musicTracks = { meadow: summerTrack, autumn: autumnTrack, winter: winterTrack, kvlt: winterTrack };
 const MUSIC_VOLUME = .3;
 const AUTUMN_MUSIC_VOLUME = MUSIC_VOLUME * 1.1;
@@ -27,6 +28,15 @@ export class GameAudio {
     this.musicAutoplayBlocked = false;
     this.musicTransition = null;
     this.musicEnvelope = null;
+    this.pettingKind = null;
+    this.pettingBuffer = null;
+    this.pettingLoad = null;
+    this.pettingFailed = false;
+    this.pettingSource = null;
+    this.boostProgress = null;
+    this.boostDuration = .9375;
+    this.boostNoiseBuffer = null;
+    this.boostVoice = null;
   }
 
   unlock() {
@@ -50,24 +60,27 @@ export class GameAudio {
         this.syncMusic();
         console.error('Taustamusiikin lataaminen epäonnistui.', this.musicElement.error);
       });
-      this.context.addEventListener('statechange', () => this.syncMusic());
+      this.context.addEventListener('statechange', () => { this.syncMusic(); this.syncPetting(); this.syncBoost(); });
     }
     if (this.musicAutoplayBlocked) {
       this.musicFailed = false;
       this.musicAutoplayBlocked = false;
     }
     if (['suspended', 'interrupted'].includes(this.context.state) && !this.contextResume) {
-      const resumed = () => { this.contextResume = null; this.syncMusic(); };
+      const resumed = () => { this.contextResume = null; this.syncMusic(); this.syncPetting(); this.syncBoost(); };
       this.contextResume = this.context.resume().then(resumed, resumed);
     }
     // Call media.play() inside the gesture too, while AudioContext resumes.
     this.syncMusic();
+    this.syncPetting();
+    this.syncBoost();
   }
 
   setEnabled(value) {
     this.enabled = value;
     if (this.effectsGain) this.effectsGain.gain.setValueAtTime(value ? 1 : 0, this.context.currentTime);
     if (value) this.unlock();
+    else { this.syncPetting(); this.syncBoost(); }
   }
 
   setMusicEnabled(value) {
@@ -80,6 +93,118 @@ export class GameAudio {
     this.theme = theme;
     this.phase = phase;
     this.syncMusic();
+    this.syncPetting();
+    this.syncBoost();
+  }
+
+  setPetting(kind) {
+    this.pettingKind = kind;
+    this.syncPetting();
+  }
+
+  setBoost(progress, duration = .9375) {
+    this.boostProgress = progress;
+    this.boostDuration = duration;
+    this.syncBoost();
+  }
+
+  stopBoost() {
+    const voice = this.boostVoice;
+    if (!voice) return;
+    if (!voice.ended) {
+      for (const source of voice.sources) source.stop();
+      for (const node of voice.nodes) node.disconnect();
+      voice.ended = true;
+    }
+    this.boostVoice = null;
+  }
+
+  syncBoost() {
+    const progress = this.boostProgress;
+    const wanted = this.enabled && this.phase === 'playing' && this.context?.state === 'running'
+      && progress !== null && progress >= 0 && progress < 1;
+    if (!wanted) { this.stopBoost(); return; }
+    // Frame updates cannot stack voices or restart an already finished sweep.
+    if (this.boostVoice) return;
+    const context = this.context;
+    const start = context.currentTime;
+    const remaining = this.boostDuration * (1 - progress);
+    const end = start + remaining;
+    if (!this.boostNoiseBuffer) {
+      this.boostNoiseBuffer = context.createBuffer(1, Math.ceil(context.sampleRate * .25), context.sampleRate);
+      const samples = this.boostNoiseBuffer.getChannelData(0);
+      for (let index = 0; index < samples.length; index++) samples[index] = Math.random() * 2 - 1;
+    }
+    const noise = context.createBufferSource();
+    noise.buffer = this.boostNoiseBuffer;
+    noise.loop = true;
+    const filter = context.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.setValueAtTime(.7, start);
+    filter.frequency.setValueAtTime(550 * 6 ** progress, start);
+    filter.frequency.exponentialRampToValueAtTime(3300, end);
+    const tone = context.createOscillator();
+    tone.type = 'triangle';
+    tone.frequency.setValueAtTime(180 * 10 ** progress, start);
+    tone.frequency.exponentialRampToValueAtTime(1800, end);
+    const toneGain = context.createGain();
+    toneGain.gain.setValueAtTime(.2, start);
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(.18 * (1 - progress), start + Math.min(.015, remaining / 2));
+    gain.gain.linearRampToValueAtTime(0, end);
+    noise.connect(filter).connect(gain);
+    tone.connect(toneGain).connect(gain);
+    gain.connect(this.effectsGain);
+    const voice = { sources: [noise, tone], nodes: [noise, tone, filter, toneGain, gain], ended: false };
+    this.boostVoice = voice;
+    tone.onended = () => {
+      if (voice.ended) return;
+      for (const node of voice.nodes) node.disconnect();
+      voice.ended = true;
+    };
+    for (const source of voice.sources) {
+      source.start(start);
+      source.stop(end);
+    }
+  }
+
+  syncPetting() {
+    const wanted = this.enabled && this.pettingKind === 'zab' && this.phase === 'playing'
+      && this.context?.state === 'running';
+    if (!wanted) {
+      if (this.pettingSource) {
+        this.pettingSource.stop();
+        this.pettingSource.disconnect();
+        this.pettingSource = null;
+      }
+      return;
+    }
+    if (this.pettingSource || this.pettingFailed) return;
+    if (!this.pettingBuffer) {
+      if (this.pettingLoad) return;
+      // A short decoded loop uses the context unlocked by the initial game gesture.
+      // Late fetch/decode results check the current petting state before starting.
+      this.pettingLoad = fetch(zabPettingTrack).then((response) => {
+        if (!response.ok) throw new Error(`Paijausäänen lataus: HTTP ${response.status}`);
+        return response.arrayBuffer();
+      }).then((bytes) => this.context.decodeAudioData(bytes)).then((buffer) => {
+        this.pettingBuffer = buffer;
+        this.pettingLoad = null;
+        this.syncPetting();
+      }).catch((error) => {
+        this.pettingLoad = null;
+        this.pettingFailed = true;
+        console.error('Paijausäänen lataaminen epäonnistui.', error);
+      });
+      return;
+    }
+    const source = this.context.createBufferSource();
+    source.buffer = this.pettingBuffer;
+    source.loop = true;
+    source.connect(this.effectsGain);
+    source.start();
+    this.pettingSource = source;
   }
 
   syncMusic() {
