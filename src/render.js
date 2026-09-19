@@ -1786,5 +1786,16 @@ export function drawGame(ctx, game, options = {}) {
   drawJoystick(ctx, options.joystick, theme);
   drawPettingScene(ctx, game, options.petEffects, reducedMotion);
   drawTrappedScene(ctx, game, theme, bunnyOptions);
+  if (game.phase !== 'ready') {
+    // Screen-relative feet position: fade in across the bottom 30% as the camera moves.
+    const danger = Math.max(0, Math.min(1, (bunnyY - HEIGHT * 0.7) / (HEIGHT * 0.3)));
+    if (danger > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.38 * danger * danger * (3 - 2 * danger);
+      ctx.fillStyle = '#e32636';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.restore();
+    }
+  }
   ctx.restore();
 }
