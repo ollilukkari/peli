@@ -15,7 +15,7 @@ function setup(seed = 7) {
   return game;
 }
 
-test('each ended combo of 10 or more grants one nearby Zab sliding in, preserving existing encounters and items', () => {
+test('each ended combo of 10 or more reserves one top-edge Zab, preserving existing encounters and items', () => {
   for (const streak of [9, 10, 11, 30]) {
     for (let seed = 0; seed < 40; seed++) {
       const game = setup(seed);
@@ -29,9 +29,12 @@ test('each ended combo of 10 or more grants one nearby Zab sliding in, preservin
       assert.equal(rewards.length, streak >= 10 ? 1 : 0);
       assert.equal(game.satsumaStreak, 0);
       if (rewards.length) {
-        assert.ok(rewards[0].y >= source.y + 60);
-        assert.ok(rewards[0].y < camera + HEIGHT);
-        assert.equal(rewards[0].dog.enteredAt, game.time);
+        const minimumY = camera + HEIGHT - PHYSICS.comboCreatureTopInset;
+        assert.ok(rewards[0].y >= minimumY);
+        const firstFree = [...before.values()].find((p) => p.y >= minimumY && !p.dog
+          && (!p.item || p.item.used) && (!p.chainSatsuma || p.chainSatsuma.used));
+        if (firstFree) assert.equal(rewards[0].id, firstFree.id);
+        assert.equal(rewards[0].dog.enteredAt, null);
         assert.ok(rewards[0].dog.x < 0 || rewards[0].dog.x > 360);
         assert.equal(rewards[0].dog.petted, false);
         assert.ok(!rewards[0].item || rewards[0].item.used);
@@ -61,12 +64,55 @@ test('combo reward slides continuously from the edge and reaches its ledge withi
   game.satsumaStreak = 10;
   landing(game, game.platforms[0]);
   const platform = game.platforms.find((p) => p.dog?.enteredAt !== undefined);
+  game.camera = platform.y - HEIGHT + PHYSICS.comboCreatureTopInset;
+  game.player.y = game.camera + 200;
+  game.player.state = 'trapped';
+  stepGame(game, DT);
+  assert.equal(platform.dog.enteredAt, game.time);
+  const feetY = HEIGHT - (platform.y - game.camera);
+  assert.ok(feetY >= PHYSICS.comboCreatureTopInset && feetY < PHYSICS.comboCreatureTopInset + 1);
   const from = platform.dog.x;
   stepGame(game, .1);
   assert.ok(Math.abs(platform.dog.x - platform.safeX) < Math.abs(from - platform.safeX));
   assert.notEqual(platform.dog.x, from);
   for (let time = .1; time < PHYSICS.comboCreatureEntryDuration + DT; time += DT) stepGame(game, DT);
   assert.ok(platform.dog.x >= platform.x + 16 && platform.dog.x <= platform.x + platform.width - 16);
+});
+
+test('offscreen rewards wait at the edge without consuming their slide animation', () => {
+  const game = setup();
+  game.satsumaStreak = 10;
+  landing(game, game.platforms[0]);
+  const platform = game.platforms.find((p) => p.dog?.enteredAt !== undefined);
+  game.camera = platform.y - HEIGHT - 100;
+  game.player.y = game.camera + 200;
+  game.player.state = 'trapped';
+  const from = platform.dog.x;
+  for (let frame = 0; frame < 120; frame++) stepGame(game, DT);
+  assert.equal(platform.dog.enteredAt, null);
+  assert.equal(platform.dog.x, from);
+  game.camera = platform.y - HEIGHT + PHYSICS.comboCreatureTopInset;
+  game.player.y = game.camera + 200;
+  stepGame(game, DT);
+  assert.equal(platform.dog.enteredAt, game.time);
+  assert.equal(platform.dog.x, from);
+  stepGame(game, .1);
+  assert.notEqual(platform.dog.x, from);
+});
+
+test('top-edge placement follows the camera at different heights rather than the bunny', () => {
+  for (const camera of [0, 350, 1200]) {
+    const game = setup();
+    game.camera = camera;
+    const source = { id: -999, x: 50, width: 260, safeX: 180, y: camera + 100, item: null };
+    game.platforms = [source];
+    game.satsumaStreak = 10;
+    landing(game, source);
+    const platform = game.platforms.find((p) => p.dog?.enteredAt !== undefined);
+    assert.ok(platform.y >= camera + HEIGHT - PHYSICS.comboCreatureTopInset);
+    assert.ok(platform.y - source.y > 400);
+    assert.equal(platform.dog.enteredAt, null);
+  }
 });
 
 test('the tenth collected fruit keeps the combo running and only its later end awards Zab', () => {

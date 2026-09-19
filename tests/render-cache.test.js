@@ -11,7 +11,7 @@ const renderSource = readFileSync(new URL('../src/render.js', import.meta.url), 
 function renderer() {
   return vm.runInNewContext(`${renderSource}\n({
     drawGame, drawBackground, drawCachedPlatform, drawPlatformScenery,
-    drawComboGlow, drawComboBurst, drawSpawnedFruit,
+    drawComboGlow, drawComboBurst, drawSpawnedFruit, drawPettingScene,
     platformHash, palettes, cacheFor: (ctx) => artworkCaches.get(ctx),
   });`, { PHYSICS }, { filename: 'src/render.js' });
 }
@@ -343,4 +343,25 @@ test('new visible fruit pops in, settles and uses only a fade with reduced motio
   assert.ok(!paint(0.03, true).some((call) => call.name === 'scale'));
   delete item.spawnedAt;
   assert.ok(!paint(0).some((call) => call.name === 'scale'));
+});
+
+test('the petting dog animates on presentation time while physics stays frozen and respects reduced motion', () => {
+  const render = renderer();
+  const game = createGame(7);
+  game.phase = 'playing';
+  game.player.state = 'petting';
+  game.player.platformId = game.platforms[0].id;
+  game.platforms[0].dog = { x: 180, direction: 1, petted: false };
+  const before = structuredClone(game);
+  const paint = (time, reduced = false) => {
+    const { ctx } = recordingCanvas();
+    render.drawPettingScene(ctx, game, { time, hearts: [] }, reduced);
+    return ctx.calls;
+  };
+  const still = paint(0);
+  const happy = paint(.15);
+  assert.notDeepEqual(happy, still);
+  assert.ok(happy.some((call) => call.name === 'scale' && call.args[0] > 1 && call.args[0] < 1.03));
+  assert.deepEqual(paint(.15, true), paint(.8, true));
+  assert.deepEqual(game, before);
 });

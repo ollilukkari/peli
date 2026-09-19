@@ -30,7 +30,16 @@ keinuvat kevyesti. Vähennetyn liikkeen asetuksella keinunta pysähtyy.
 Kombon poimintaääni voimistuu hieman tasoilla 3–10 ja pysyy sen jälkeen samalla
 voimakkuudella. Kakkaan astuttaessa pupu sanoo ”Hyi!”, ”Kääk!” tai ”Oivoi!”.
 Vähintään kymmenen herkun tai trampoliinin kombon päättyessä ylimääräinen Zab
-liukuu sivusta seuraavalle vapaalle tasolle 0,55 sekunnissa.
+liukuu sivusta peliruudun yläreunassa saapuvalle vapaalle tasolle 0,55 sekunnissa.
+Liuku alkaa vasta tason saavuttaessa yläreunan, joten se näkyy kokonaan.
+Taputeltava koira keinahtelee iloisesti, heiluttaa häntäänsä ja läähättää.
+Animaatio käyttää taputtelun omaa kelloa muun kentän ollessa pysähdyksissä,
+ja vähennetyn liikkeen asetuksella koiran asento pysyy paikallaan.
+
+Tasojen lähtöleveydet ovat 20 % aiempaa pienemmät. Tasot kapenevat edelleen
+10 % aina 250 nousumetrin välein, 70 pikselin vähimmäisleveyteen saakka.
+Vierimisnopeus kiihtyy korkeuden mukana 30 % aiempaa nopeammin: sama
+enimmäisnopeus saavutetaan noin 769 metrissä entisen 1 000 metrin sijaan.
 
 Taustattomat kombonumerot käyttävät tietokoneelle asennettua Cooper Black
 -fonttia, josta myös otsikon grafiikka on tehty. Fonttitiedostoa ei jaeta pelin

@@ -18,6 +18,7 @@ export const PHYSICS = Object.freeze({
   boostMultiplier: Math.sqrt(3),
   scrollSpeed: 33.8,
   maxScrollSpeed: 60.84,
+  scrollAccelerationMultiplier: 1.3,
   followHeight: HEIGHT * 0.62,
   trapTaps: 10,
   dogTaps: 10,
@@ -33,6 +34,7 @@ export const PHYSICS = Object.freeze({
   trampolineRiseMeters: 50,
   trampolineHeight: 17,
   comboCreatureEntryDuration: 0.55,
+  comboCreatureTopInset: 32,
   safeWidth: 40,
   gullWidth: 30,
   gullHeight: 14,
@@ -44,7 +46,7 @@ export const PHYSICS = Object.freeze({
 const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!'];
 const POOP_SAYINGS = ['Hyi!', 'Kääk!', 'Oivoi!'];
 const NORMAL_HEIGHT = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
-const PLATFORM_WIDTH_SCALE = 0.9;
+const PLATFORM_WIDTH_SCALE = 0.9 * 0.8;
 const PLATFORM_NARROWING_METERS = 250;
 const MIN_PLATFORM_WIDTH = 70;
 const MIN_SAFE_WIDTH = 5.6;
@@ -173,9 +175,9 @@ function generatePlatforms(game, targetY = game.camera + HEIGHT + NORMAL_HEIGHT 
 }
 
 function spawnComboCreature(game) {
-  // Reveal the reward on the next free ledge above the bunny, without waiting
-  // for an offscreen encounter to scroll all the way into view.
-  const minimumY = game.player.y + 60;
+  // Reserve the first free ledge arriving at the top edge. Its 32 px inset
+  // leaves the hamster's antennae just inside the viewport when it slides in.
+  const minimumY = game.camera + HEIGHT - PHYSICS.comboCreatureTopInset;
   const available = () => game.platforms.find((entry) => entry.y >= minimumY && !entry.dog
     && (!entry.item || entry.item.used) && (!entry.chainSatsuma || entry.chainSatsuma.used));
   let platform = available();
@@ -185,7 +187,7 @@ function spawnComboCreature(game) {
   }
   const fromX = platform.safeX < WIDTH / 2 ? -44 : WIDTH + 44;
   platform.dog = { kind: 'zab', x: fromX, direction: 1, petted: false,
-    enteredAt: game.time, entryFromX: fromX };
+    enteredAt: null, entryFromX: fromX };
 }
 
 function markFruitSpawn(game, platform, item) {
@@ -216,6 +218,11 @@ function creatureInterval(game) {
 function moveDogs(game) {
   for (const platform of game.platforms) {
     if (!platform.dog) continue;
+    if (platform.dog.enteredAt === null) {
+      // Keep the complete entry animation until the encounter reaches the top.
+      if (platform.y > game.camera + HEIGHT - PHYSICS.comboCreatureTopInset) continue;
+      platform.dog.enteredAt = game.time;
+    }
     const margin = 16;
     const walk = reflectedPosition(game.time * 18, platform.width - margin * 2);
     const targetX = platform.x + margin + walk.position;
@@ -557,14 +564,29 @@ function findLanding(platforms, previousX, previousY, player) {
     fraction: (previousY - landingY) / (previousY - player.y) } : null;
 }
 
-function previewLanding(game, dt, axis, platforms) {
+function scrollSpeedAt(maxY, startY) {
+  const difficulty = clamp((maxY - startY) / 12000 * PHYSICS.scrollAccelerationMultiplier, 0, 1);
+  return PHYSICS.scrollSpeed + (PHYSICS.maxScrollSpeed - PHYSICS.scrollSpeed) * difficulty;
+}
+
+function previewLanding(game, dt, axis, platforms, checkCamera = false) {
   const player = { ...game.player };
+  let maxY = Math.max(game.maxY, player.y);
+  // Target selection runs inside landing, before this frame's camera update.
+  let camera = Math.max(game.camera + scrollSpeedAt(maxY, game.startY) * dt,
+    player.y - PHYSICS.followHeight);
   const steps = Math.ceil(2 * player.vy / PHYSICS.gravity / dt) + 2;
   for (let frame = 0; frame < steps; frame += 1) {
     const previousX = player.x;
     const previousY = player.y;
     advanceAir(player, dt, axis);
     const landing = findLanding(platforms, previousX, previousY, player);
+    if (checkCamera) {
+      const y = landing ? landing.y : player.y;
+      maxY = Math.max(maxY, y);
+      camera = Math.max(camera + scrollSpeedAt(maxY, game.startY) * dt, y - PHYSICS.followHeight);
+      if (y <= camera) return null;
+    }
     if (landing) return landing;
   }
   return null;
@@ -602,7 +624,7 @@ function directLandingAt(game, dt, platform, x) {
     if (crossingX < x) low = axis;
     else high = axis;
   }
-  const landing = previewLanding(game, dt, axis, game.platforms);
+  const landing = previewLanding(game, dt, axis, game.platforms, true);
   return landing?.platform.id === platform.id && Math.abs(landing.x - x) < 2 ? landing : null;
 }
 
@@ -798,8 +820,7 @@ export function stepGame(game, dt, axis = 0) {
 
   game.maxY = Math.max(game.maxY, game.player.y);
   game.score = Math.floor((game.maxY - game.startY) / PHYSICS.pixelsPerMeter);
-  const difficulty = clamp((game.maxY - game.startY) / 12000, 0, 1);
-  const speed = PHYSICS.scrollSpeed + (PHYSICS.maxScrollSpeed - PHYSICS.scrollSpeed) * difficulty;
+  const speed = scrollSpeedAt(game.maxY, game.startY);
   if (game.player.state !== 'petting' && scrollDt > 0) {
     // The launch eases in from rest; its protected bunny must never be overtaken.
     const scrollDistance = previousBoostY === null ? speed * scrollDt

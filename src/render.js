@@ -1251,6 +1251,11 @@ export function drawDog(ctx, dog, feetY, time, petting = false, showHeart = true
   ctx.save();
   ctx.translate(Math.round(dog.x), Math.round(feetY));
   ctx.scale(dog.direction, 1);
+  if (petting) {
+    const delight = Math.sin(time * 7);
+    ctx.translate(delight * .7, -(1 - Math.cos(time * 7)) * 1.2);
+    ctx.scale(1 + delight * .025, 1 - delight * .035);
+  }
   const ink = '#24232a';
   const fur = '#fff2db';
   const shade = '#cabbab';
@@ -1275,17 +1280,24 @@ export function drawDog(ctx, dog, feetY, time, petting = false, showHeart = true
   box(ctx, shade, -5, -17, 4, 5);
   box(ctx, shade, 9, -17, 3, 5);
   for (const x of [-6, 8]) {
-    pixelOval(ctx, '#100f14', x, -28, 5, 5, 1);
-    box(ctx, '#ffffff', x + 1, -28, 2, 2);
+    if (petting) {
+      // Happy half-closed eyes during the enlarged petting encounter.
+      box(ctx, '#100f14', x, -27, 5, 2);
+      box(ctx, '#100f14', x + 1, -28, 3, 1);
+    } else {
+      pixelOval(ctx, '#100f14', x, -28, 5, 5, 1);
+      box(ctx, '#ffffff', x + 1, -28, 2, 2);
+    }
   }
   pixelOval(ctx, '#131218', 0, -23, 8, 5, 1);
   box(ctx, '#72636a', 1, -23, 3, 1);
   box(ctx, ink, 3, -18, 2, 3);
-  pixelOval(ctx, '#ed94ad', 2, -16, 6, 6, 1);
+  const pant = petting ? Math.round((1 + Math.sin(time * 10)) * 1.5) : 0;
+  pixelOval(ctx, '#ed94ad', 2, -16, 6, 6 + pant, 1);
   box(ctx, '#f8bcc8', 3, -16, 2, 3);
   box(ctx, fur, -8, -13, 2, 4);
   box(ctx, fur, 11, -14, 2, 4);
-  const wag = Math.round(Math.sin(time * (petting ? 18 : 15)) * 3);
+  const wag = Math.round(Math.sin(time * (petting ? 22 : 15)) * (petting ? 6 : 3));
   pixelOval(ctx, ink, -20, -17 + wag, 9, 6, 2);
   box(ctx, fur, -20, -17 + wag, 3, 3);
   if (petting && showHeart) {

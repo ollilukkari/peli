@@ -269,6 +269,19 @@ test('camera always advances, follows a boost and ends the game at the bottom', 
   assert.deepEqual(game, snapshot);
 });
 
+test('scroll speed ramps 30 percent faster with altitude while retaining its starting speed and cap', () => {
+  for (const meters of [0, 100, 400, 700, 1000 / 1.3, 1000]) {
+    const game = withoutGulls(createGame(7));
+    startGame(game);
+    game.player.state = 'trapped';
+    game.maxY = game.startY + meters * PHYSICS.pixelsPerMeter;
+    const camera = game.camera;
+    stepGame(game, DT);
+    const expectedSpeed = 33.8 + (60.84 - 33.8) * Math.min(1, meters / 1000 * 1.3);
+    assert.ok(Math.abs((game.camera - camera) / DT - expectedSpeed) < 1e-9, `${meters} m`);
+  }
+});
+
 test('seed and input history reproduce the same game exactly', () => {
   const first = createGame(5412);
   const second = createGame(5412);
@@ -287,16 +300,16 @@ test('seed and input history reproduce the same game exactly', () => {
   assert.notDeepEqual(createGame(0).platforms, createGame(1).platforms);
 });
 
-test('the starting ledge stays centered and generated widths use the ten-percent narrower bounds', () => {
+test('the starting ledge stays centered and all opening widths are a further twenty percent narrower', () => {
   for (let seed = 0; seed < 200; seed++) {
     const game = createGame(seed);
     const initial = game.platforms[0];
-    assert.ok(Math.abs(initial.width - 280.8) < 1e-9);
+    assert.ok(Math.abs(initial.width - 280.8 * .8) < 1e-9);
     assert.equal(initial.x + initial.width / 2, WIDTH / 2);
     for (const platform of game.platforms.slice(1)) {
       const opening = platform.id <= 3;
-      assert.ok(platform.width >= (opening ? 133.2 : 93.6) - 1e-9);
-      assert.ok(platform.width <= (opening ? 162 : 176.4));
+      assert.ok(platform.width >= (opening ? 133.2 : 93.6) * .8 - 1e-9);
+      assert.ok(platform.width <= (opening ? 162 : 176.4) * .8);
       assert.ok(platform.safeWidth > 0);
       assert.ok(platform.safeX - platform.safeWidth / 2 >= platform.x);
       assert.ok(platform.safeX + platform.safeWidth / 2 <= platform.x + platform.width);
@@ -414,8 +427,8 @@ test('routes visibly vary their heights, widths and left-to-right positions', ()
   const fraction = (values, predicate) => values.filter(predicate).length / values.length;
   assert.ok(fraction(rises, (rise) => rise <= 72.001) > 0.2);
   assert.ok(fraction(rises, (rise) => rise > 105) > 0.15);
-  assert.ok(fraction(widths, (width) => width < 108) > 0.12);
-  assert.ok(fraction(widths, (width) => width > 162) > 0.12);
+  assert.ok(fraction(widths, (width) => width < 108 * .8) > 0.12);
+  assert.ok(fraction(widths, (width) => width > 162 * .8) > 0.12);
   assert.ok(fraction(shifts, (shift) => shift > 80) > 0.35);
   assert.ok(fraction(centers, (center) => center < 105) > 0.15);
   assert.ok(fraction(centers, (center) => center > 255) > 0.15);
@@ -577,7 +590,7 @@ function takeChainJump(game, dt = DT) {
       stepGame(trial, dt, -1 + control / 50);
       if (trial.events.length) break;
     }
-    if (trial.events[0]?.type === 'satsuma'
+    if (trial.phase === 'playing' && trial.events[0]?.type === 'satsuma'
       && trial.player.y === target.y
       && [trial.platforms.find((platform) => platform.id === target.id)?.item,
         trial.platforms.find((platform) => platform.id === target.id)?.chainSatsuma]
@@ -748,7 +761,7 @@ test('many seeds and incoming directions preserve geometry and leave chain fruit
           if (overlapsX) assert.ok(other.y - target.y >= 72 - 1e-6);
         }
         if (target.chainSatsuma && target.item && !target.item.used) {
-          assert.ok(Math.abs(target.chainSatsuma.x - target.item.x) >= 45);
+          assert.ok(Math.abs(target.chainSatsuma.x - target.item.x) >= (target.width < 94 ? 34 : 45));
         }
         if (seed % 50 === 0) assert.equal(takeChainJump(game).satsumaStreak, 2);
       }
@@ -840,8 +853,8 @@ test('seed 44 can chain from the right wall onto a clear outer landing area', ()
   assert.ok(game.platforms.every((platform) => platform.id >= 0 && !platform.chain));
 });
 
-test('seed 35 reserves headroom for a naturally generated fruit outside the center patch', () => {
-  const game = createGame(35);
+test('seed 11 reserves headroom for a naturally generated fruit outside the center patch', () => {
+  const game = createGame(11);
   const lower = game.platforms.find((platform) => platform.id === 8);
   const upper = game.platforms.find((platform) => platform.id === 9);
   assert.equal(lower.item.type, 'satsuma');
