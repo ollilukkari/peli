@@ -96,6 +96,7 @@ function application({ autoStart = true, storedSettings = null, search = '', tou
       setPetting(kind) { pettingKinds.push(kind); }
       setBoost(progress, duration) { boostStages.push({ progress, duration }); }
     },
+    setupInstall: () => {},
     setupPwa: (callbacks) => {
       pwaCallbacks = callbacks;
       return { applyUpdate: async () => { updateApplications++; return false; } };

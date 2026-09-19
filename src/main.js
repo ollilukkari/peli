@@ -1,7 +1,7 @@
 import { WIDTH, HEIGHT, PHYSICS, createGame, startGame, stepGame, tapTrap, tapDog, pauseGame, resumeGame } from './game.js';
 import { drawGame } from './render.js';
 import { GameAudio } from './audio.js';
-import { setupPwa } from './pwa.js';
+import { setupPwa, setupInstall } from './pwa.js';
 
 const $ = (selector) => document.querySelector(selector);
 const canvas = $('#game');
@@ -57,7 +57,6 @@ let previousTime = 0;
 let updateReady = false;
 let lastUpdateState = null;
 let wasTrapped = false;
-let deferredInstall = null;
 let lastScore = -1;
 let lastPhase = null;
 let lastTapCount = -1;
@@ -385,18 +384,15 @@ $('#update').addEventListener('click', async () => {
   button.textContent = 'Päivitetään…';
   if (!await pwa.applyUpdate()) { button.disabled = false; button.textContent = 'Yritä uudelleen'; }
 });
-window.addEventListener('beforeinstallprompt', (event) => {
-  event.preventDefault(); deferredInstall = event; $('#install').hidden = false;
+setupInstall({
+  menuButton: $('#install'),
+  dialog: $('#install-dialog'),
+  installButton: $('#install-confirm'),
+  closeButton: $('#install-close'),
+  status: $('#install-status'),
+  help: $('#install-help'),
+  onPrompt: pauseOnLeave,
 });
-$('#install').addEventListener('click', async () => {
-  if (!deferredInstall) return;
-  pauseOnLeave();
-  await deferredInstall.prompt();
-  await deferredInstall.userChoice;
-  deferredInstall = null;
-  $('#install').hidden = true;
-});
-window.addEventListener('appinstalled', () => { $('#install').hidden = true; deferredInstall = null; });
 
 function getAxis() {
   if (game.player.state === 'pet-boost') return 0;

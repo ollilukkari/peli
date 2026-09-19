@@ -1,3 +1,69 @@
+/** Share ?install=1 to open installation help without changing the app identity. */
+export function setupInstall({ menuButton, dialog, installButton, closeButton, status, help, onPrompt }) {
+  let pendingPrompt = null;
+  let installed = window.matchMedia('(display-mode: standalone)').matches;
+  let prompting = false;
+
+  function showStatus(message, { ready = false, showHelp = false } = {}) {
+    status.textContent = message;
+    installButton.disabled = !ready;
+    menuButton.hidden = !ready;
+    help.hidden = !showHelp;
+  }
+
+  function markInstalled() {
+    installed = true;
+    pendingPrompt = null;
+    showStatus('Peli on asennettu. Löydät sen puhelimen aloitusnäytöltä.');
+    installButton.hidden = true;
+  }
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    if (installed) return;
+    pendingPrompt = event;
+    showStatus('Paina Asenna peli ja hyväksy puhelimen asennusvahvistus.', { ready: !prompting });
+  });
+  window.addEventListener('appinstalled', markInstalled);
+
+  async function install() {
+    if (!pendingPrompt || prompting || installed) return;
+    const prompt = pendingPrompt;
+    pendingPrompt = null; // Each browser event may be used only once.
+    prompting = true;
+    showStatus('Vahvista asennus puhelimen avautuvassa ikkunassa.');
+    try {
+      onPrompt?.();
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (installed) return; // appinstalled may arrive before userChoice resolves.
+      if (choice.outcome === 'accepted') {
+        showStatus('Asennus hyväksytty. Odota, että puhelin viimeistelee asennuksen.');
+      } else {
+        showStatus('Asennus peruttiin. Voit jatkaa peliin ja palata asennuslinkkiin myöhemmin.', { ready: !!pendingPrompt, showHelp: !pendingPrompt });
+      }
+    } catch {
+      if (!installed) showStatus('Asennusikkunaa ei voitu avata. Avaa asennuslinkki uudelleen Chromessa.', { showHelp: true });
+    } finally {
+      prompting = false;
+    }
+  }
+
+  menuButton.addEventListener('click', install);
+  installButton.addEventListener('click', install);
+  closeButton.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('install');
+    window.history.replaceState(window.history.state, '', url);
+  });
+
+  if (installed) markInstalled();
+  if (new URLSearchParams(window.location.search).get('install') === '1' && !installed) {
+    dialog.showModal();
+  }
+}
+
 /** Register offline support without ever interrupting a round for an update. */
 export function setupPwa({ onUpdateReady, onOfflineReady, onStatus } = {}) {
   let registration;

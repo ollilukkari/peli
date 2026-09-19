@@ -86,6 +86,16 @@
       </section>
 
     </main>
+    <dialog id="install-dialog" class="install-dialog" aria-labelledby="install-title" aria-describedby="install-status">
+      <img src="./assets/icon-192.png" width="88" height="88" alt="">
+      <p class="eyebrow">PIKKU PUPUN POMPUTTELU PELI</p>
+      <h2 id="install-title">Pupu puhelimeen</h2>
+      <p>Saat pelille oman kuvakkeen aloitusnäyttöön.</p>
+      <p id="install-status" role="status" aria-live="polite">Odotetaan selaimen asennusvalmiutta.</p>
+      <button id="install-confirm" class="install-button" disabled>Asenna peli</button>
+      <p id="install-help" class="install-help">Jos painike ei aktivoidu, avaa tämä linkki Androidin Chromessa. Viestisovelluksen oma selain ei välttämättä tue asennusta. Jos peli on jo asennettu, avaa se aloitusnäytön kuvakkeesta.</p>
+      <button id="install-close" class="quiet-button" autofocus>Jatka peliin</button>
+    </dialog>
     <p id="announcer" class="sr-only" role="status" aria-live="polite"></p>
     <script type="module" src="./src/main.js"></script>
   </body>
