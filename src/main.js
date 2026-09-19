@@ -102,7 +102,7 @@ function processEvents() {
     if (event.type === 'dog') {
       petEffects = { time: 0, hearts: [] };
       clearInput();
-      announce('Silitä koiraa pyyhkäisemällä ruutua kymmenen kertaa. Hiirellä pidä painike pohjassa ja vedä.');
+      announce('Paijaa otusta pyyhkäisemällä ruutua kymmenen kertaa. Hiirellä pidä painike pohjassa ja vedä.');
     }
     if (event.type === 'trap') {
       clearInput();

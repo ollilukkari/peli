@@ -403,14 +403,29 @@ function drawLeafPile(ctx, x, y) {
   }
 }
 
-function drawBareBranch(ctx, x, y) {
-  box(ctx, '#9a866d', x - 1, y - 31, 3, 33);
-  for (const [dx, top, direction] of [[-10, -18, -1], [2, -23, 1], [-7, -27, -1]]) {
-    box(ctx, '#9a866d', x + dx, y + top, 9, 3);
-    box(ctx, '#9a866d', x + dx + (direction > 0 ? 7 : 0), y + top - 6, 2, 7);
+function drawRowanBush(ctx, x, y) {
+  // Fine stems and paired leaflets keep the silhouette soft and woodland-like.
+  shape(ctx, '#887352', [[x - 2, y + 2], [x - 1, y - 20],
+    [x - 5, y - 30], [x - 3, y - 30], [x + 2, y - 20], [x + 2, y + 2]]);
+  for (const [dx, top, direction] of [[-3, -25, -1], [1, -20, 1], [-1, -13, -1]]) {
+    for (let step = 0; step < 3; step += 1) {
+      const leafX = x + dx + direction * step * 5;
+      const leafY = y + top - step * 3;
+      box(ctx, '#998055', leafX, leafY, direction * 5, 2);
+      box(ctx, step === 1 ? '#c28a48' : '#be7845', leafX - 2, leafY - 4, 5, 3);
+      box(ctx, '#d29a53', leafX - 2, leafY + 2, 5, 3);
+    }
+    box(ctx, '#d5a55e', x + dx + direction * 15 - 2, y + top - 10, 5, 3);
   }
-  box(ctx, '#b09c7e', x, y - 25, 1, 22);
-  box(ctx, '#bd9b6e', x + 9, y - 26, 5, 2);
+  // Small attached berry bunches read as scenery rather than loose fruit.
+  for (const [dx, dy] of [[-10, -23], [12, -17], [-6, -10]]) {
+    box(ctx, '#87734e', x + dx, y + dy - 3, 1, 4);
+    box(ctx, '#a94d3d', x + dx - 3, y + dy, 3, 3);
+    box(ctx, '#bd5c40', x + dx + 1, y + dy, 3, 3);
+    box(ctx, '#a44838', x + dx - 1, y + dy + 3, 3, 3);
+    box(ctx, '#dc8a57', x + dx - 3, y + dy, 1, 1);
+    box(ctx, '#d37b4c', x + dx + 1, y + dy, 1, 1);
+  }
 }
 
 function drawSnowyFir(ctx, x, y) {
@@ -449,7 +464,7 @@ function drawLampPost(ctx, x, y) {
 const platformScenery = {
   meadow: [drawFern, drawDaisies, drawMushrooms, drawRock, drawStump],
   autumn: [drawAutumnBush, drawPumpkin, drawLeafPile,
-    (ctx, x, y) => drawMushrooms(ctx, x, y, true), drawBareBranch,
+    (ctx, x, y) => drawMushrooms(ctx, x, y, true), drawRowanBush,
     (ctx, x, y) => drawStump(ctx, x, y, true)],
   winter: [drawSnowman, drawSnowLantern, drawSnowyFir,
     (ctx, x, y) => drawRock(ctx, x, y, true), drawIceCrystals, drawLampPost],
