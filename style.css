@@ -37,9 +37,9 @@ html[data-install-view="true"] .layout{display:none}
 .game-frame[data-theme="winter"] .dialog-card{background:#182a40;border-color:#7894aa}
 @media(max-height:600px) and (orientation:landscape){.menu h1{margin-bottom:10px}.theme-select{margin-bottom:8px}.theme-select button{padding:2px 1px;gap:2px;font-size:8px}.theme-select button>span{font-size:12px}.record-line{margin-top:10px}}
 
-.combo-badge{margin-top:7px;padding:4px 7px;border:1px solid #805139;border-radius:3px;background:#ffe6a6;color:#644532;font:800 11px/1.3 ui-monospace,monospace;letter-spacing:.5px;text-shadow:none;box-shadow:2px 2px #5e42232b}
-.game-frame[data-theme="kvlt"] .combo-badge{color:#f7d4a8;background:#4a303b;border-color:#bd8b88}
-.game-frame[data-theme="winter"] .combo-badge{color:#e1f3fc;background:#21394e;border-color:#83b7d5}
+.combo-badge{margin-top:7px;color:#644532;font:20px/1.15 "Cooper Black";text-shadow:1px 1px #fffbed}
+.game-frame[data-theme="kvlt"] .combo-badge{color:#f7d4a8;text-shadow:1px 1px #302439}
+.game-frame[data-theme="winter"] .combo-badge{color:#e1f3fc;text-shadow:1px 1px #21394e}
 /* Carry each world's palette through the surrounding page and browser chrome. */
 body[data-theme="meadow"]{background-color:#e6edda;--line:#c8d2bc}
 body[data-theme="autumn"]{background-color:#efdbb6;color:#59422f;--ink:#59422f;--muted:#826449;--line:#d1b68e}
@@ -67,7 +67,7 @@ body:is([data-theme="kvlt"],[data-theme="winter"]) .update-notice{background:var
 .game-frame[data-theme="autumn"] .dialog-card{background:#fae6c5;border-color:#9e724a}
 .game-frame[data-theme="autumn"] :is(.dialog-card p,.text-button){color:#816144}
 .game-frame[data-theme="autumn"] .result strong{color:#a75630}
-.game-frame[data-theme="autumn"] .combo-badge{background:#ffe2a4;border-color:#ad6b36;color:#794729}
+.game-frame[data-theme="autumn"] .combo-badge{color:#794729}
 #music{position:relative}
 #music[aria-pressed="false"]{opacity:.55}
 #music[aria-pressed="false"]::after{content:"";position:absolute;width:22px;height:2px;transform:rotate(-45deg);background:currentColor}

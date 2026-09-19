@@ -179,6 +179,18 @@ test('poop preserves direction and faster arrivals slide faster and farther', ()
   }
 });
 
+test('poop uses only the three short reactions', () => {
+  const messages = new Set();
+  for (let seed = 0; seed < 40; seed++) {
+    const game = landingGame('poop');
+    game.randomState = seed;
+    stepGame(game, DT);
+    messages.add(game.bubble);
+    assert.equal(game.player.state, 'sliding');
+  }
+  assert.deepEqual([...messages].sort(), ['Hyi!', 'Kääk!', 'Oivoi!'].sort());
+});
+
 test('zero-speed poop causes a stationary wobble followed by a bounce', () => {
   const game = landingGame('poop');
   stepGame(game, DT);
@@ -456,10 +468,31 @@ test('real physics can land safely after sampled jumps from either patch edge an
             if (result.player.x < targetX) leftAxis = axis;
             else rightAxis = axis;
           }
+          if (next.item?.type === 'trampoline') {
+            // Raised mat interception makes x-at-first-contact discontinuous:
+            // sample real controls instead of assuming the ground-only solver.
+            for (let control = 0; control <= 200; control++) {
+              const trial = tryJump(previous, next, startX, startVx, -1 + control / 100);
+              const event = trial.events[0]?.type;
+              if (event === 'trampoline' || (event === 'bounce'
+                  && Math.abs(trial.player.x - next.safeX) <= next.safeWidth / 2)) {
+                result = trial;
+                break;
+              }
+            }
+          }
           const context = `seed ${seed}, platform ${next.id}, side ${side}, velocity ${startVx}`;
-          assert.ok(['bounce', 'dog'].includes(result.events[0]?.type), context);
-          assert.ok(Math.abs(result.player.x - next.safeX) <= next.safeWidth / 2, context);
-          assert.equal(result.player.y, next.y, context);
+          assert.ok(['bounce', 'dog', 'trampoline'].includes(result.events[0]?.type), context);
+          if (result.events[0]?.type === 'trampoline') {
+            // A raised mat can intercept the approach before the ground patch.
+            assert.equal(next.item.type, 'trampoline', context);
+            assert.ok(Math.abs(result.player.x - next.item.x) <= PHYSICS.playerWidth / 2 + PHYSICS.itemHalfWidth, context);
+            assert.equal(result.player.y, next.y + PHYSICS.trampolineHeight, context);
+            assert.ok(Math.abs(result.player.vy ** 2 / (2 * PHYSICS.gravity) - 50 * PHYSICS.pixelsPerMeter) < 1e-8, context);
+          } else {
+            assert.ok(Math.abs(result.player.x - next.safeX) <= next.safeWidth / 2, context);
+            assert.equal(result.player.y, next.y, context);
+          }
           if (result.platforms[0].item) assert.equal(result.platforms[0].item.used, false, context);
         }
       }
@@ -776,7 +809,7 @@ test('late narrow routes retain hazards and offer real satsuma continuations in 
     }
   }
   assert.ok(narrowTargets > 0 && sharedTargets > 0);
-  assert.deepEqual([...itemTypes].sort(), ['poop', 'satsuma', 'trap'], 'all generated item types remain on 70 px ledges');
+  assert.deepEqual([...itemTypes].sort(), ['poop', 'satsuma', 'trampoline', 'trap'], 'all generated item types remain on 70 px ledges');
 });
 
 test('normal generation reserves fruit headroom before platforms become visible', () => {

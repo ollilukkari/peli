@@ -315,24 +315,31 @@ export class GameAudio {
       && ['ready', 'playing', 'over'].includes(this.phase) && contextAvailable);
   }
 
-  play(event, theme = 'meadow') {
+  play(event, theme = 'meadow', combo = 0) {
     if (!this.enabled || !this.context || this.context.state !== 'running') return;
     const notes = {
       bounce: [420, 700, .085], satsuma: [530, 1250, .24],
       trap: [180, 90, .18], tap: [340, 410, .035],
       release: [450, 960, .17], slip: [210, 80, .2], over: [330, 220, 1.08],
-      gull: [700, 400, .1],
+      gull: [700, 400, .1], trampoline: [180, 1150, .32],
     };
     const note = notes[event];
     if (!note) return;
-    const [from, to, duration] = note;
+    let [from, to, duration] = note;
+    const comboLevel = (event === 'satsuma' || event === 'trampoline') && combo >= 3 ? Math.min(10, combo) - 3 : null;
+    if (comboLevel !== null) {
+      // One voice per pickup: a rising, softer bell replaces the ordinary bite.
+      from = 660 * 2 ** (comboLevel / 12);
+      to = from * 1.5;
+      duration = .28;
+    }
     const context = this.context;
     const start = context.currentTime;
     const oscillator = context.createOscillator();
     const gain = context.createGain();
-    oscillator.type = isKvlt(theme) ? 'sawtooth' : 'triangle';
+    oscillator.type = comboLevel !== null ? 'sine' : isKvlt(theme) ? 'sawtooth' : 'triangle';
     const pitch = isKvlt(theme) ? .55 : 1;
-    const volume = isKvlt(theme) ? .027 : .065;
+    const volume = comboLevel !== null ? .045 + comboLevel * .003 : isKvlt(theme) ? .027 : .065;
     if (event === 'over') {
       // Three separated descending notes: short "di-dy", then a sustained "dyy".
       for (const [frequency, offset, length] of [[from, 0, .18], [277, .23, .18], [to, .46, .62]]) {

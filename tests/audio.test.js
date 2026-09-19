@@ -13,6 +13,49 @@ const autumn = 'https://example.test/game/assets/audio/kalm-mjork.mp3';
 const winter = 'https://example.test/game/assets/audio/frozen-minor.mp3';
 const zab = 'https://example.test/game/assets/audio/zab-petting.mp3';
 
+test('combo pickup bell rises gently through levels 3–10, caps and respects mute', async () => {
+  const app = application({ musicEnabled: false });
+  await app.start('meadow', 'playing');
+  const volumes = [];
+  const pitches = [];
+  for (let level = 3; level <= 11; level++) {
+    app.audio.play('satsuma', 'meadow', level);
+    const voice = app.context.oscillators.at(-1);
+    assert.equal(voice.type, 'sine');
+    const gain = voice.connections[0];
+    volumes.push(gain.gain.events.find(([type]) => type === 'linear')[1]);
+    pitches.push(voice.frequency.events[0][1]);
+    assert.equal(gain.connections[0], app.audio.effectsGain);
+    voice.onended();
+    assert.equal(gain.disconnected, true);
+  }
+  for (let index = 1; index < 8; index++) {
+    assert.ok(volumes[index] > volumes[index - 1]);
+    assert.ok(volumes[index] - volumes[index - 1] < .004);
+    assert.ok(pitches[index] > pitches[index - 1]);
+  }
+  assert.ok(volumes.at(-1) <= .066);
+  assert.equal(volumes[7], volumes[8]);
+  assert.equal(pitches[7], pitches[8]);
+  app.audio.setEnabled(false);
+  app.audio.play('satsuma', 'meadow', 10);
+  assert.equal(app.context.oscillators.length, 9);
+});
+
+test('trampolines use the same combo bell as fruit at each combo level', async () => {
+  const app = application({ musicEnabled: false });
+  await app.start('meadow', 'playing');
+  for (const level of [3, 7, 10, 11]) {
+    app.audio.play('satsuma', 'meadow', level);
+    const fruit = app.context.oscillators.at(-1);
+    app.audio.play('trampoline', 'meadow', level);
+    const trampoline = app.context.oscillators.at(-1);
+    assert.equal(trampoline.type, fruit.type);
+    assert.deepEqual(trampoline.frequency.events, fruit.frequency.events);
+    assert.deepEqual(trampoline.connections[0].gain.events, fruit.connections[0].gain.events);
+  }
+});
+
 function deferred() {
   let resolve;
   let reject;

@@ -322,7 +322,8 @@ test('combo splash starts at one and contains only the growing number', () => {
     render.drawComboBurst(ctx, game, 'meadow', false);
     const labels = ctx.calls.filter((call) => call.name === 'fillText');
     assert.deepEqual(labels.map((call) => call.args[0]), [String(streak), String(streak)]);
-    assert.equal(ctx.font, 'bold 48px monospace');
+    assert.equal(ctx.font, '64px "Cooper Black"');
+    assert.equal(ctx.calls.filter((call) => call.name === 'fill').length, 0, 'no filled splash background');
     assert.ok(ctx.calls.filter((call) => call.name === 'translate').every((call) => call.args.every(Number.isFinite)));
   }
 });

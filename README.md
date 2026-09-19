@@ -22,6 +22,20 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 - **Tietokone:** ohjaa vasemmalla ja oikealla nuolinäppäimellä. Escape avaa tauon.
 - **Napautukset:** napauta ruutua, klikkaa hiirellä tai paina ohjeen mukaisia näppäimiä erikseen. Pohjassa pitäminen ja pyyhkäisy eivät lisää napautuksia.
 
+Tasojen reunoille ilmestyy trampoliineja: laskeutuminen matolle ampaisee pupun
+50 metriä ylöspäin maton korkeudelta. Trampoliinit seisovat tason päällä.
+Sivuttaisohjaus toimii myös ampaisun aikana. Trampoliini kasvattaa herkkukomboa
+yhdellä ja tarjoaa seuraavan herkun kombon jatkamiseen. Välipalat
+keinuvat kevyesti. Vähennetyn liikkeen asetuksella keinunta pysähtyy.
+Kombon poimintaääni voimistuu hieman tasoilla 3–10 ja pysyy sen jälkeen samalla
+voimakkuudella. Kakkaan astuttaessa pupu sanoo ”Hyi!”, ”Kääk!” tai ”Oivoi!”.
+Vähintään kymmenen herkun tai trampoliinin kombon päättyessä ylimääräinen Zab
+liukuu sivusta seuraavalle vapaalle tasolle 0,55 sekunnissa.
+
+Taustattomat kombonumerot käyttävät tietokoneelle asennettua Cooper Black
+-fonttia, josta myös otsikon grafiikka on tehty. Fonttitiedostoa ei jaeta pelin
+mukana; ilman asennettua fonttia numerot näkyvät selaimen oletusfontilla.
+
 ## Offline ja asennus
 
 **Androidin asennuslinkki: [Asenna peli puhelimeen](https://ollilukkari.github.io/peli/?install=1)**

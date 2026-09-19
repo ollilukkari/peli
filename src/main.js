@@ -109,7 +109,7 @@ function clearInput() {
 }
 function processEvents() {
   for (const event of game.events.splice(0)) {
-    audio.play(event.type, settings.theme);
+    audio.play(event.type, settings.theme, event.combo);
     if (event.type === 'dog') {
       petEffects = { time: 0, hearts: [] };
       clearInput();
@@ -123,7 +123,8 @@ function processEvents() {
         ? 'Jalka jäi ansaan. Napauta kymmenen kertaa.'
         : 'Jalka jäi ansaan. Paina nuolinäppäimiä tai välilyöntiä kymmenen kertaa.');
     }
-    if (event.type === 'satsuma') announce(`${game.bubble} Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} välipalan kombo!` : ''}`);
+    if (event.type === 'satsuma') announce(`${game.bubble} Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} hypyn kombo!` : ''}`);
+    if (event.type === 'trampoline') announce(`Trampoliini! 50 metriä ylöspäin.${event.combo >= 3 ? ` ${event.combo} hypyn kombo!` : ''}`);
     if (event.type === 'release') announce('Vapaa!');
     if (event.type === 'pet-boost') {
       clearInput();
@@ -134,7 +135,7 @@ function processEvents() {
       audio.play('release', settings.theme);
       announce('Ampaisu valmis. Pompitaan!');
     }
-    if (event.type === 'slip') announce('Hyi kakkaa!');
+    if (event.type === 'slip') announce(game.bubble);
     if (event.type === 'over') finishRound();
   }
 }

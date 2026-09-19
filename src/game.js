@@ -30,6 +30,9 @@ export const PHYSICS = Object.freeze({
   slipDeceleration: 400 / 1.5,
   zeroSlipDuration: 0.22,
   pixelsPerMeter: 12,
+  trampolineRiseMeters: 50,
+  trampolineHeight: 17,
+  comboCreatureEntryDuration: 0.55,
   safeWidth: 40,
   gullWidth: 30,
   gullHeight: 14,
@@ -39,6 +42,7 @@ export const PHYSICS = Object.freeze({
 });
 
 const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!'];
+const POOP_SAYINGS = ['Hyi!', 'Kääk!', 'Oivoi!'];
 const NORMAL_HEIGHT = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
 const PLATFORM_WIDTH_SCALE = 0.9;
 const PLATFORM_NARROWING_METERS = 250;
@@ -59,7 +63,7 @@ function random(game) {
 }
 
 function emit(game, type) {
-  game.events.push({ type, x: game.player.x, y: game.player.y });
+  game.events.push({ type, x: game.player.x, y: game.player.y, combo: game.satsumaStreak });
 }
 
 function approach(value, target, amount) {
@@ -87,6 +91,12 @@ function generatePlatforms(game, targetY = game.camera + HEIGHT + NORMAL_HEIGHT 
       itemType = choice < 0.4 ? 'satsuma' : choice < 0.7 ? 'trap' : choice < 0.85 ? 'poop' : null;
       // Even a skipped poop consumes its side draw, preserving the random stream.
       itemSide = random(game) < 0.5 ? -1 : 1;
+    }
+    // Share the existing edge-item footprint so every normal safe patch and
+    // guaranteed fruit continuation stays available, including narrow ledges.
+    if (!itemType && id % 9 === 5) {
+      itemType = 'trampoline';
+      itemSide = id % 2 ? 1 : -1;
     }
 
     // Visit each side for two steps, allowing the route to reach the outer
@@ -163,8 +173,9 @@ function generatePlatforms(game, targetY = game.camera + HEIGHT + NORMAL_HEIGHT 
 }
 
 function spawnComboCreature(game) {
-  // Keep the entire encounter above the viewport and let normal scrolling reveal it.
-  const minimumY = game.camera + HEIGHT + 60;
+  // Reveal the reward on the next free ledge above the bunny, without waiting
+  // for an offscreen encounter to scroll all the way into view.
+  const minimumY = game.player.y + 60;
   const available = () => game.platforms.find((entry) => entry.y >= minimumY && !entry.dog
     && (!entry.item || entry.item.used) && (!entry.chainSatsuma || entry.chainSatsuma.used));
   let platform = available();
@@ -172,7 +183,9 @@ function spawnComboCreature(game) {
     generatePlatforms(game, Math.max(minimumY + NORMAL_HEIGHT * 3, game.generatedTopY + 120));
     platform = available();
   }
-  platform.dog = { kind: 'zab', x: platform.safeX, direction: 1, petted: false };
+  const fromX = platform.safeX < WIDTH / 2 ? -44 : WIDTH + 44;
+  platform.dog = { kind: 'zab', x: fromX, direction: 1, petted: false,
+    enteredAt: game.time, entryFromX: fromX };
 }
 
 function markFruitSpawn(game, platform, item) {
@@ -205,7 +218,12 @@ function moveDogs(game) {
     if (!platform.dog) continue;
     const margin = 16;
     const walk = reflectedPosition(game.time * 18, platform.width - margin * 2);
-    platform.dog.x = platform.x + margin + walk.position;
+    const targetX = platform.x + margin + walk.position;
+    const entry = platform.dog.enteredAt === undefined ? 1
+      : clamp((game.time - platform.dog.enteredAt) / PHYSICS.comboCreatureEntryDuration, 0, 1);
+    const ease = 1 - (1 - entry) ** 3;
+    platform.dog.x = entry === 1 ? targetX
+      : platform.dog.entryFromX + (targetX - platform.dog.entryFromX) * ease;
     platform.dog.direction = walk.direction;
   }
 }
@@ -424,18 +442,20 @@ export function tapTrap(game) {
   return true;
 }
 
-function land(game, platform, dt) {
+function land(game, platform, dt, landingY) {
   const player = game.player;
-  player.y = platform.y;
-  const item = landingItem(platform, player.x);
+  player.y = landingY;
+  let item = landingItem(platform, player.x);
+  // A side entry below the mat reaches the ground, not the jumping surface.
+  if (item?.type === 'trampoline' && landingY === platform.y) item = null;
   const hitItem = item !== null;
   game.lastLanding = {
-    x: player.x, y: platform.y, time: game.time, type: hitItem ? item.type : 'normal',
+    x: player.x, y: landingY, time: game.time, type: hitItem ? item.type : 'normal',
   };
-  const hitSatsuma = hitItem && item.type === 'satsuma';
-  if (!hitSatsuma && game.satsumaStreak >= 10) spawnComboCreature(game);
-  game.satsumaStreak = hitSatsuma ? game.satsumaStreak + 1 : 0;
-  if (!hitSatsuma) game.chainTargetId = null;
+  const continuesCombo = hitItem && (item.type === 'satsuma' || item.type === 'trampoline');
+  if (!continuesCombo && game.satsumaStreak >= 10) spawnComboCreature(game);
+  game.satsumaStreak = continuesCombo ? game.satsumaStreak + 1 : 0;
+  if (!continuesCombo) game.chainTargetId = null;
 
   if (platform.dog && !platform.dog.petted
       && Math.abs(player.x - platform.dog.x) <= PHYSICS.dogNearDistance) {
@@ -454,12 +474,18 @@ function land(game, platform, dt) {
     return;
   }
 
-  item.used = true;
+  item.used = item.type !== 'trampoline';
   if (item.type === 'satsuma') {
     game.lastMealAt = game.time;
     game.bubble = SAYINGS[Math.floor(random(game) * SAYINGS.length)];
     game.bubbleUntil = game.time + 1.8;
     bounce(game, PHYSICS.boostMultiplier, 'satsuma');
+    ensureSatsumaTarget(game, dt);
+  } else if (item.type === 'trampoline') {
+    item.bouncedAt = game.time;
+    const speed = Math.sqrt(2 * PHYSICS.gravity * PHYSICS.trampolineRiseMeters * PHYSICS.pixelsPerMeter);
+    bounce(game, speed / PHYSICS.jumpSpeed, 'trampoline');
+    generatePlatforms(game, player.y + PHYSICS.trampolineRiseMeters * PHYSICS.pixelsPerMeter + HEIGHT);
     ensureSatsumaTarget(game, dt);
   } else if (item.type === 'trap') {
     player.state = 'trapped';
@@ -469,7 +495,7 @@ function land(game, platform, dt) {
     game.trapTaps = 0;
     emit(game, 'trap');
   } else if (item.type === 'poop') {
-    game.bubble = 'Hyi kakkaa!';
+    game.bubble = POOP_SAYINGS[Math.floor(random(game) * POOP_SAYINGS.length)];
     game.bubbleUntil = game.time + 1.8;
     player.state = 'sliding';
     player.platformId = platform.id;
@@ -507,19 +533,28 @@ function findLanding(platforms, previousX, previousY, player) {
 
   let landing = null;
   let landingX = player.x;
-  for (const platform of platforms) {
-    if (previousY < platform.y || player.y > platform.y) continue;
-    const fraction = (previousY - platform.y) / (previousY - player.y);
+  let landingY = -Infinity;
+  function consider(platform, y, left, right, trampoline = null) {
+    if (previousY < y || player.y > y || y <= landingY) return;
+    const fraction = (previousY - y) / (previousY - player.y);
     const crossingX = previousX + (player.x - previousX) * fraction;
-    if (crossingX + HALF_BUNNY <= platform.x || crossingX - HALF_BUNNY >= platform.x + platform.width) continue;
-    if (!landing || platform.y > landing.y) {
-      landing = platform;
-      landingX = crossingX;
+    if (crossingX + HALF_BUNNY <= left || crossingX - HALF_BUNNY >= right) return;
+    if (trampoline && landingItem(platform, crossingX) !== trampoline) return;
+    landing = platform;
+    landingX = crossingX;
+    landingY = y;
+  }
+  for (const platform of platforms) {
+    const item = platform.item;
+    if (item?.type === 'trampoline') {
+      consider(platform, platform.y + PHYSICS.trampolineHeight,
+        item.x - PHYSICS.itemHalfWidth, item.x + PHYSICS.itemHalfWidth, item);
     }
+    consider(platform, platform.y, platform.x, platform.x + platform.width);
   }
 
-  return landing ? { platform: landing, x: landingX,
-    fraction: (previousY - landing.y) / (previousY - player.y) } : null;
+  return landing ? { platform: landing, x: landingX, y: landingY,
+    fraction: (previousY - landingY) / (previousY - player.y) } : null;
 }
 
 function previewLanding(game, dt, axis, platforms) {
@@ -542,7 +577,8 @@ function isFreshSatsuma(landing) {
 function landingItem(platform, x) {
   let closest = null;
   for (const item of [platform.item, platform.chainSatsuma]) {
-    if (!item || item.used || Math.abs(x - item.x) > HALF_BUNNY + PHYSICS.itemHalfWidth) continue;
+    if (!item || item.used) continue;
+    if (Math.abs(x - item.x) > HALF_BUNNY + PHYSICS.itemHalfWidth) continue;
     if (!closest || Math.abs(x - item.x) < Math.abs(x - closest.x)) closest = item;
   }
   return closest;
@@ -709,7 +745,7 @@ function stepAir(game, dt, axis, gullPaths) {
     emit(game, 'gull');
   } else if (landing) {
     player.x = landing.x;
-    land(game, landing.platform, dt);
+    land(game, landing.platform, dt, landing.y);
   }
 }
 

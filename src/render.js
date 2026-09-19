@@ -743,6 +743,13 @@ function drawLingonberries(ctx, x, y) {
 }
 
 export function drawSeasonFruit(ctx, x, y, time, theme, reducedMotion) {
+  ctx.save();
+  if (!reducedMotion) {
+    const angle = Math.sin(time * 2.4 + x * 0.07) * 0.085;
+    ctx.translate(x, y - 2);
+    ctx.transform(Math.cos(angle), Math.sin(angle), -Math.sin(angle), Math.cos(angle), 0, 0);
+    ctx.translate(-x, -(y - 2));
+  }
   const strawberry = theme === 'meadow';
   const lingonberry = theme === 'autumn';
   const outerGlow = strawberry ? '#ff8f91' : lingonberry ? '#d34c73' : '#ffc873';
@@ -782,6 +789,30 @@ export function drawSeasonFruit(ctx, x, y, time, theme, reducedMotion) {
     }
     ctx.restore();
   }
+  ctx.restore();
+}
+
+function drawTrampoline(ctx, item, y, time, theme, reducedMotion) {
+  y -= PHYSICS.trampolineHeight;
+  const age = time - (item.bouncedAt ?? -Infinity);
+  const recoil = reducedMotion || age < 0 || age > .4 ? 0 : Math.sin(age / .4 * Math.PI * 2) * (1 - age / .4) * 5;
+  const x = item.x;
+  const rim = isDarkTheme(theme) ? '#a3d9ea' : '#69b8ac';
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(.6, 1);
+  ctx.translate(-x, -y);
+  // Feet meet the ground; the raised mat matches its physical landing plane.
+  for (const side of [-1, 1]) {
+    box(ctx, '#374b53', x + side * 19 - 2, y + 3, 4, 14);
+    box(ctx, '#dde9db', x + side * 19 - 1, y + 5, 2, 9);
+  }
+  pixelOval(ctx, '#30434c', x - 27, y - 4 + recoil, 54, 12, 3);
+  pixelOval(ctx, rim, x - 25, y - 5 + recoil, 50, 8, 2);
+  box(ctx, '#35495c', x - 19, y - 3 + recoil, 38, 4);
+  for (let offset = -16; offset <= 16; offset += 8) box(ctx, '#b9dfcc', x + offset, y + recoil, 3, 1);
+  shape(ctx, '#fff1bd', [[x - 5, y - 1 + recoil], [x, y - 5 + recoil], [x + 5, y - 1 + recoil]]);
+  ctx.restore();
 }
 
 function drawTrap(ctx, x, y, theme, used, time, reducedMotion) {
@@ -1528,7 +1559,7 @@ function drawSpawnedFruit(ctx, item, y, gameTime, visualTime, theme, reducedMoti
 }
 
 function drawComboBurst(ctx, game, theme, reducedMotion) {
-  if (!(game.satsumaStreak >= 1) || game.lastLanding?.type !== 'satsuma') return;
+  if (!(game.satsumaStreak >= 1) || !['satsuma', 'trampoline'].includes(game.lastLanding?.type)) return;
   const age = game.time - game.lastLanding.time;
   const duration = reducedMotion ? 0.55 : 0.85;
   if (age < 0 || age >= duration) return;
@@ -1540,9 +1571,9 @@ function drawComboBurst(ctx, game, theme, reducedMotion) {
       : { fill: '#ffd378', ink: '#65404b', border: '#fff9d7', spark: '#ffbd65' };
   const label = String(game.satsumaStreak);
   ctx.save();
-  ctx.font = 'bold 48px monospace';
-  const fontSize = Math.min(48, Math.floor(48 * 228 / ctx.measureText(label).width));
-  ctx.font = `bold ${fontSize}px monospace`;
+  ctx.font = '64px "Cooper Black"';
+  const fontSize = Math.min(64, Math.floor(64 * 228 / ctx.measureText(label).width));
+  ctx.font = `${fontSize}px "Cooper Black"`;
   const halfWidth = Math.max(48, (Math.ceil(ctx.measureText(label).width) + 28) / 2);
   // Keep the whole celebration below the midpoint and clear of the bottom controls.
   const positions = [[180, 420], [132, 452], [228, 436], [150, 468], [222, 456]];
@@ -1556,27 +1587,11 @@ function drawComboBurst(ctx, game, theme, reducedMotion) {
   ctx.translate(Math.round(x), y);
   ctx.scale(pop, pop);
 
-  const burst = [
-    [-halfWidth - 10, -24], [-halfWidth + 12, -21], [-halfWidth + 8, -34], [-halfWidth + 40, -26],
-    [-18, -31], [0, -39], [15, -30], [halfWidth - 37, -26], [halfWidth - 10, -35],
-    [halfWidth - 12, -19], [halfWidth + 11, -23], [halfWidth + 3, -3], [halfWidth + 13, 13],
-    [halfWidth - 8, 16], [halfWidth - 4, 31], [halfWidth - 35, 24], [17, 29], [2, 37],
-    [-15, 28], [-halfWidth + 35, 24], [-halfWidth + 9, 32], [-halfWidth + 11, 17],
-    [-halfWidth - 12, 20], [-halfWidth - 4, 0],
-  ];
-  ctx.save();
-  ctx.translate(3, 4);
-  shape(ctx, colors.ink, burst);
-  ctx.restore();
-  shape(ctx, colors.fill, burst);
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = colors.border;
-  ctx.stroke();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = colors.border;
-  ctx.fillText(label, 0, 2);
   ctx.fillStyle = colors.ink;
+  ctx.fillText(label, 2, 3);
+  ctx.fillStyle = colors.border;
   ctx.fillText(label, 0, 0);
 
   // A few local sparks celebrate the pickup without flashing the whole playfield.
@@ -1681,6 +1696,7 @@ export function drawGame(ctx, game, options = {}) {
     if (y < -10 || y > HEIGHT + 48) continue;
     const item = platform.item;
     if (item?.type === 'satsuma' && !item.used) drawSpawnedFruit(ctx, item, y, game.time, visualTime, theme, reducedMotion);
+    if (item?.type === 'trampoline') drawTrampoline(ctx, item, y, game.time, theme, reducedMotion);
     if (item?.type === 'trap') drawTrap(ctx, item.x, y, theme, item.used, visualTime, reducedMotion);
     if (item?.type === 'poop') drawPoop(ctx, item.x, y, theme, item.used, visualTime, reducedMotion);
     const chain = platform.chainSatsuma;

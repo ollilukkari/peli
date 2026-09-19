@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, startGame, stepGame, HEIGHT } from '../src/game.js';
+import { createGame, startGame, stepGame, HEIGHT, PHYSICS } from '../src/game.js';
 
 const DT = 1 / 120;
 function landing(game, platform) {
@@ -15,7 +15,7 @@ function setup(seed = 7) {
   return game;
 }
 
-test('each ended combo of 10 or more grants exactly one extra offscreen Zab, preserving existing encounters and items', () => {
+test('each ended combo of 10 or more grants one nearby Zab sliding in, preserving existing encounters and items', () => {
   for (const streak of [9, 10, 11, 30]) {
     for (let seed = 0; seed < 40; seed++) {
       const game = setup(seed);
@@ -29,7 +29,10 @@ test('each ended combo of 10 or more grants exactly one extra offscreen Zab, pre
       assert.equal(rewards.length, streak >= 10 ? 1 : 0);
       assert.equal(game.satsumaStreak, 0);
       if (rewards.length) {
-        assert.ok(rewards[0].y >= camera + HEIGHT + 60);
+        assert.ok(rewards[0].y >= source.y + 60);
+        assert.ok(rewards[0].y < camera + HEIGHT);
+        assert.equal(rewards[0].dog.enteredAt, game.time);
+        assert.ok(rewards[0].dog.x < 0 || rewards[0].dog.x > 360);
         assert.equal(rewards[0].dog.petted, false);
         assert.ok(!rewards[0].item || rewards[0].item.used);
       }
@@ -51,6 +54,19 @@ test('each ended combo of 10 or more grants exactly one extra offscreen Zab, pre
       }
     }
   }
+});
+
+test('combo reward slides continuously from the edge and reaches its ledge within 0.55 seconds', () => {
+  const game = setup();
+  game.satsumaStreak = 10;
+  landing(game, game.platforms[0]);
+  const platform = game.platforms.find((p) => p.dog?.enteredAt !== undefined);
+  const from = platform.dog.x;
+  stepGame(game, .1);
+  assert.ok(Math.abs(platform.dog.x - platform.safeX) < Math.abs(from - platform.safeX));
+  assert.notEqual(platform.dog.x, from);
+  for (let time = .1; time < PHYSICS.comboCreatureEntryDuration + DT; time += DT) stepGame(game, DT);
+  assert.ok(platform.dog.x >= platform.x + 16 && platform.dog.x <= platform.x + platform.width - 16);
 });
 
 test('the tenth collected fruit keeps the combo running and only its later end awards Zab', () => {
