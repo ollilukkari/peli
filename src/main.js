@@ -17,7 +17,6 @@ $('#help-content').append($('.intro').cloneNode(true), $('.field-guide').cloneNo
 const keys = new Set();
 const tapKeys = new Set();
 const downPointers = new Set();
-const coarse = matchMedia('(pointer: coarse)');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const settingsKey = 'ponppu.settings.v1';
 const recordKey = 'ponppu.record.v1';
@@ -351,10 +350,6 @@ function pauseOnLeave() {
 }
 window.addEventListener('blur', pauseOnLeave);
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseOnLeave(); });
-function refreshControlHint() {
-  $('#start-tip').innerHTML = coarse.matches ? 'Kosketa ja vedä alaosassa <span aria-hidden="true">↔</span>' : 'Ohjaa nuolinäppäimillä <span aria-hidden="true">← →</span>';
-}
-coarse.addEventListener('change', refreshControlHint);
 
 const pwa = setupPwa({
   onUpdateReady() { updateReady = true; refreshUi(); },
@@ -411,6 +406,5 @@ setTheme(settings.theme);
 refreshSound();
 refreshMusic();
 refreshBest();
-refreshControlHint();
 refreshUi();
 requestAnimationFrame(loop);
