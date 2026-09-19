@@ -22,7 +22,7 @@ Kaikki kolme esinettä ovat mukana ensimmäisessä versiossa. Ne aktivoituvat va
 | --- | --- |
 | Satsuma | Kolminkertainen hyppykorkeus ja jokin puhekuplista: ”Hyvää!”, ”Nam!”, ”Njömps!”. |
 | Ansa | Pupu jää tason mukana liikkuvaan ansaan. Neljä erillistä napautusta, nuolinäppäimen tai välilyönnin painallusta vapauttaa sen ja käynnistää pompun. Pohjassa pitäminen ei tuota lisätökkäisyjä. |
-| Kakka | Pupu sanoo ”Hyi kakkaa”. Normaali pomppu jää hetkeksi pois. Pupu liukuu tulosuuntaan; nopeus ja kesto riippuvat sivuttaisnopeudesta osumahetkellä. |
+| Kakka | Pupu sanoo ”Hyi kakkaa!”. Normaali pomppu jää hetkeksi pois. Pupu liukuu tulosuuntaan; nopeus ja kesto riippuvat sivuttaisnopeudesta osumahetkellä. |
 
 Kakkoja syntyy noin puolet aiemmasta määrästä. Samalla tulonopeudella vapaa liukumatka on 1,5-kertainen; tason reuna voi katkaista liu'un. Vaakasuunnassa sik-sak lentävät lokit kimmottavat ilmassa olevan pupun viistosti ylöspäin ja poispäin lokista. Lyhyt osumatauko estää saman kosketuksen toistuvan kimmotuksen. Lokki ei vapauta ansasta eikä katkaise satsumakomboa.
 
