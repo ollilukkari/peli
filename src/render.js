@@ -579,11 +579,15 @@ function drawPlatform(ctx, platform, screenY, palette, theme, gameSeed) {
 }
 
 function drawSatsuma(ctx, x, y, time, theme, reducedMotion) {
-  const float = reducedMotion ? 0 : Math.sin(time * 3 + x) * 1.4;
+  const pulse = reducedMotion ? 0.5 : (1 + Math.sin(time * Math.PI / 2.6 + x * 0.07)) / 2;
+  const float = reducedMotion ? 0 : Math.sin(time * Math.PI / 2.6 + x * 0.07) * 0.8;
   y += float;
-  ctx.globalAlpha = 0.14;
-  pixelOval(ctx, isDarkTheme(theme) ? '#ffb45e' : '#fffbcd', x - 23, y - 37, 46, 43, 6);
-  ctx.globalAlpha = 1;
+  ctx.save();
+  ctx.globalAlpha = 0.06 + pulse * 0.06;
+  pixelOval(ctx, '#ffc873', x - 27, y - 41, 54, 51, 8);
+  ctx.globalAlpha = 0.12 + pulse * 0.12;
+  pixelOval(ctx, isDarkTheme(theme) ? '#ffb45e' : '#ffed9a', x - 23, y - 37, 46, 43, 6);
+  ctx.restore();
   pixelOval(ctx, '#9b6243', x - 15, y - 27, 30, 27, 3);
   pixelOval(ctx, '#ee8b42', x - 15, y - 29, 30, 25, 3);
   pixelOval(ctx, '#ffb44e', x - 12, y - 29, 23, 20, 3);
@@ -593,11 +597,19 @@ function drawSatsuma(ctx, x, y, time, theme, reducedMotion) {
   box(ctx, '#87624a', x - 1, y - 34, 3, 7);
   box(ctx, '#4b8051', x + 2, y - 35, 9, 5);
   box(ctx, '#73a866', x + 3, y - 35, 8, 2);
-  star(ctx, x + 23, y - 24, '#fff4bc', 2);
-  if (Math.sin(time * 4 + x) > 0.2) star(ctx, x - 21, y - 38, '#fff4bc', 1);
+  if (!reducedMotion) {
+    ctx.save();
+    for (const [offset, dx, dy, size] of [[0, 23, -24, 2], [2.4, -21, -38, 1]]) {
+      const phase = (time + x * 0.017 + offset) % 5.8;
+      if (phase >= 1.3) continue;
+      ctx.globalAlpha = Math.sin(phase / 1.3 * Math.PI) ** 2 * 0.85;
+      star(ctx, x + dx, y + dy, '#fff4bc', size);
+    }
+    ctx.restore();
+  }
 }
 
-function drawTrap(ctx, x, y, theme, used) {
+function drawTrap(ctx, x, y, theme, used, time, reducedMotion) {
   const metal = theme === 'winter' ? '#b8cfda' : theme === 'kvlt' ? '#a7a0b6' : '#b2ada0';
   const shadow = theme === 'winter' ? '#1a2c3f' : theme === 'kvlt' ? '#302d44' : '#68636a';
   if (used) {
@@ -618,15 +630,43 @@ function drawTrap(ctx, x, y, theme, used) {
   }
   box(ctx, shadow, x + 18, y - 1, 7, 2);
   box(ctx, metal, x + 22, y, 5, 2);
+  // A brief sword-tip glint anchored to the upper-right corner of the right tooth.
+  const phase = (time + x * 0.017) % 6;
+  if (!reducedMotion && phase < 0.8) {
+    const strength = Math.sin(phase / 0.8 * Math.PI) ** 3;
+    const tipX = x + 14;
+    const tipY = y - 17;
+    const reach = 2 + strength * 7;
+    ctx.save();
+    ctx.globalAlpha = strength * 0.92;
+    shape(ctx, '#ecfaff', [[tipX, tipY - reach], [tipX + 1, tipY - 1],
+      [tipX + reach * 0.7, tipY], [tipX + 1, tipY + 1],
+      [tipX, tipY + reach], [tipX - 1, tipY + 1],
+      [tipX - reach * 0.7, tipY], [tipX - 1, tipY - 1]]);
+    box(ctx, '#ffffff', tipX - 1, tipY - 1, 2, 2);
+    ctx.restore();
+  }
 }
 
-function drawPoop(ctx, x, y, theme, used) {
+function drawPoop(ctx, x, y, theme, used, time, reducedMotion) {
   const outline = theme === 'kvlt' ? '#5a4264' : '#73574e';
   const fill = theme === 'kvlt' ? '#aa799c' : '#ae8060';
   if (used) {
     pixelOval(ctx, outline, x - 15, y - 3, 30, 4, 1);
     return;
   }
+  ctx.save();
+  for (let strand = 0; strand < 2; strand++) {
+    const phase = reducedMotion ? 0.45 : ((time / 5.5 + strand / 2 + x * 0.003) % 1);
+    const rise = phase * 7;
+    ctx.globalAlpha = (reducedMotion ? 0.3 : Math.sin(phase * Math.PI) * 0.38);
+    const color = isDarkTheme(theme) ? '#bec496' : '#73865d';
+    for (let segment = 0; segment < 2; segment++) {
+      const sway = Math.sin(segment * 1.4 + (reducedMotion ? 0 : time * 0.8) + strand) * 2;
+      box(ctx, color, x - 4 + strand * 8 + sway, y - 30 - rise - segment * 3, 1, 3);
+    }
+  }
+  ctx.restore();
   pixelOval(ctx, outline, x - 14, y - 10, 28, 10, 2);
   pixelOval(ctx, fill, x - 12, y - 10, 24, 7, 2);
   pixelOval(ctx, outline, x - 10, y - 18, 20, 10, 2);
@@ -699,6 +739,62 @@ function drawGull(ctx, gull, y, time, theme, reducedMotion) {
   box(ctx, '#ffd779', 16, -3, 4, 1);
   box(ctx, '#d8a044', 0, 6, 3, 2);
   box(ctx, '#d8a044', 6, 6, 3, 2);
+  ctx.restore();
+}
+
+export function drawBird(ctx, bird, y, time, theme, reducedMotion = false) {
+  if (theme !== 'autumn' && theme !== 'winter') {
+    drawGull(ctx, bird, y, time, theme, reducedMotion);
+    return;
+  }
+  const duck = theme === 'autumn';
+  const ink = duck ? '#44372d' : '#15202b';
+  const wing = duck ? '#8b7960' : '#264457';
+  const pale = duck ? '#d5ccaf' : '#fff9ee';
+  const flap = reducedMotion ? 0 : Math.sin(time * 9 + bird.id * 1.7);
+  ctx.save();
+  ctx.translate(Math.round(bird.x), Math.round(y));
+  ctx.scale(bird.direction < 0 ? -1 : 1, 1);
+  // Seasonal silhouettes are visual only: every bird keeps the same collision body.
+  if (duck) {
+    shape(ctx, ink, [[-10, -3], [-23, -5], [-19, 2], [-12, 5]]);
+    box(ctx, '#bdab88', -20, -3, 9, 3);
+  } else {
+    shape(ctx, ink, [[-9, -4], [-36, 1], [-39, 5], [-32, 7], [-9, 3]]);
+    shape(ctx, '#31566b', [[-15, -1], [-33, 2], [-35, 4], [-27, 3], [-12, 1]]);
+  }
+  pixelOval(ctx, ink, -16, -7, 31, 15, 3);
+  pixelOval(ctx, pale, -13, -4, 25, 10, 2);
+  pixelOval(ctx, duck ? '#765043' : ink, 0, -5, 13, 11, 2);
+  if (flap > 0.25) {
+    shape(ctx, ink, [[-10, 0], [-17, -11], [-20, -22], [-14, -20], [-7, -12], [0, -1]]);
+    shape(ctx, wing, [[-11, -3], [-15, -12], [-16, -17], [-10, -11], [-4, -2]]);
+    box(ctx, duck ? '#47658b' : pale, -14, -12, 5, 5);
+  } else if (flap < -0.25) {
+    shape(ctx, ink, [[-10, -3], [0, 0], [-5, 12], [-13, 20], [-19, 19], [-14, 10]]);
+    shape(ctx, wing, [[-10, 0], [-4, 1], [-8, 12], [-14, 16], [-12, 9]]);
+    box(ctx, duck ? '#47658b' : pale, -13, 8, 5, 5);
+  } else {
+    shape(ctx, ink, [[-12, -4], [-24, -10], [-29, -9], [-21, -3], [-6, 3], [0, -1]]);
+    box(ctx, wing, -19, -5, 15, 4);
+    box(ctx, duck ? '#47658b' : pale, -14, -4, 8, 3);
+  }
+  pixelOval(ctx, ink, 5, -11, 13, 14, 2);
+  pixelOval(ctx, duck ? '#38745a' : '#172530', 7, -9, 9, 10, 2);
+  if (duck) {
+    box(ctx, '#6e9b68', 8, -9, 5, 2);
+    box(ctx, '#fff7de', 6, 0, 8, 2);
+    pixelOval(ctx, '#8b652c', 15, -5, 12, 5, 1);
+    box(ctx, '#e6b347', 16, -5, 10, 3);
+  } else {
+    shape(ctx, ink, [[15, -6], [24, -3], [16, -1]]);
+    box(ctx, '#52636c', 16, -5, 4, 1);
+    box(ctx, pale, -9, 3, 8, 3);
+  }
+  box(ctx, '#100f15', 12, -7, 2, 2);
+  box(ctx, '#fffdf5', 12, -7, 1, 1);
+  box(ctx, duck ? '#d9913e' : ink, -2, 7, 5, 2);
+  box(ctx, duck ? '#d9913e' : ink, 5, 6, 4, 2);
   ctx.restore();
 }
 
@@ -889,7 +985,7 @@ export function drawBunny(ctx, x, feetY, {
   ctx.restore();
 }
 
-export function drawDog(ctx, dog, feetY, time, petting = false) {
+export function drawDog(ctx, dog, feetY, time, petting = false, showHeart = true) {
   ctx.save();
   ctx.translate(Math.round(dog.x), Math.round(feetY));
   ctx.scale(dog.direction, 1);
@@ -927,14 +1023,51 @@ export function drawDog(ctx, dog, feetY, time, petting = false) {
   box(ctx, '#f8bcc8', 3, -16, 2, 3);
   box(ctx, fur, -8, -13, 2, 4);
   box(ctx, fur, 11, -14, 2, 4);
-  const wag = petting ? 2 : Math.round(Math.sin(time * 15) * 3);
+  const wag = Math.round(Math.sin(time * (petting ? 18 : 15)) * 3);
   pixelOval(ctx, ink, -20, -17 + wag, 9, 6, 2);
   box(ctx, fur, -20, -17 + wag, 3, 3);
-  if (petting) {
+  if (petting && showHeart) {
     box(ctx, '#ed94ad', -3, -45, 4, 3);
     box(ctx, '#ed94ad', 3, -45, 4, 3);
     box(ctx, '#ed94ad', -2, -42, 8, 3);
     box(ctx, '#ed94ad', 0, -39, 4, 2);
+  }
+  ctx.restore();
+}
+
+export function drawPettingScene(ctx, game, effects, reducedMotion = false) {
+  if (game.phase !== 'playing') return;
+  const petting = game.player.state === 'petting';
+  if (!petting && !effects?.hearts.length) return;
+  const time = effects?.time ?? 0;
+  ctx.save();
+  if (petting) {
+    box(ctx, 'rgba(10, 16, 27, 0.76)', 0, 0, WIDTH, HEIGHT);
+    // The enlarged dog stays above the instruction panel at 60% of screen height.
+    ctx.save();
+    ctx.translate(WIDTH / 2, HEIGHT * 0.49);
+    ctx.scale(4.5, 4.5);
+    drawDog(ctx, { x: 0, direction: 1 }, 0, reducedMotion ? 0 : time, true, false);
+    ctx.restore();
+  }
+  for (const heart of effects?.hearts ?? []) {
+    const age = time - heart.born;
+    if (age < 0 || age >= 1.4) continue;
+    for (let index = 0; index < 3; index++) {
+      const side = ((heart.stroke + index) % 2) ? -1 : 1;
+      const drift = reducedMotion ? 0 : age * (60 + index * 14);
+      const x = WIDTH / 2 + side * (45 + index * 19 + (reducedMotion ? 0 : age * 10));
+      const y = HEIGHT * 0.35 - index * 15 - drift;
+      const size = index === 1 ? 3 : 2;
+      ctx.globalAlpha = Math.min(1, (1.4 - age) * 2.5);
+      const color = index === 1 ? '#ffcadc' : '#f37ea6';
+      box(ctx, color, x - 3 * size, y, 2 * size, size);
+      box(ctx, color, x + size, y, 2 * size, size);
+      box(ctx, color, x - 4 * size, y + size, 8 * size, 2 * size);
+      box(ctx, color, x - 3 * size, y + 3 * size, 6 * size, size);
+      box(ctx, color, x - 2 * size, y + 4 * size, 4 * size, size);
+      box(ctx, color, x - size, y + 5 * size, 2 * size, size);
+    }
   }
   ctx.restore();
 }
@@ -1108,7 +1241,7 @@ export function drawGame(ctx, game, options = {}) {
   for (const gull of game.gulls ?? []) {
     const y = screenY(gull.y);
     if (y < -28 || y > HEIGHT + 28 || gull.x < -34 || gull.x > WIDTH + 34) continue;
-    drawGull(ctx, gull, y, visualTime, theme, reducedMotion);
+    drawBird(ctx, gull, y, visualTime, theme, reducedMotion);
   }
 
   // Items sit in front of every platform, including nearby overlapping platforms.
@@ -1119,8 +1252,8 @@ export function drawGame(ctx, game, options = {}) {
     if (y < -10 || y > HEIGHT + 48) continue;
     const item = platform.item;
     if (item?.type === 'satsuma' && !item.used) drawSatsuma(ctx, item.x, y, visualTime, theme, reducedMotion);
-    if (item?.type === 'trap') drawTrap(ctx, item.x, y, theme, item.used);
-    if (item?.type === 'poop') drawPoop(ctx, item.x, y, theme, item.used);
+    if (item?.type === 'trap') drawTrap(ctx, item.x, y, theme, item.used, visualTime, reducedMotion);
+    if (item?.type === 'poop') drawPoop(ctx, item.x, y, theme, item.used, visualTime, reducedMotion);
     const chain = platform.chainSatsuma;
     if (chain && !chain.used) drawSatsuma(ctx, chain.x, y, visualTime, theme, reducedMotion);
   }
@@ -1168,5 +1301,6 @@ export function drawGame(ctx, game, options = {}) {
   ctx.fillStyle = edge;
   ctx.fillRect(0, HEIGHT - 48, WIDTH, 48);
   drawJoystick(ctx, options.joystick, theme);
+  drawPettingScene(ctx, game, options.petEffects, reducedMotion);
   ctx.restore();
 }

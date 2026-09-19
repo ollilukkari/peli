@@ -126,3 +126,17 @@ body[data-update-ready="true"]{--update-space:52px}
 @media(max-height:600px) and (orientation:landscape){.dialog-overlay{padding:10px}.dialog-card{padding:14px 10px}.dialog-card h2{font-size:18px;margin:7px 0 12px}.dialog-card p{margin:10px 0 15px;font-size:9px}.dialog-card .primary-button{padding:8px 6px;gap:5px;font-size:10px}.dialog-card .text-button{margin-top:12px;font-size:9px}.result{margin-top:9px}.result strong{font-size:36px;letter-spacing:-2px}.result>span{font-size:8px;letter-spacing:2px}#resume{font-size:12px}}
 
 .trap-notice{top:60%;bottom:auto;width:94%;box-sizing:border-box;pointer-events:none}.trap-notice strong{font-family:Arial,sans-serif;font-size:clamp(18px,6cqw,26px);font-weight:900;letter-spacing:0;text-shadow:.5px 0 currentColor}.dog-notice{position:absolute;width:88%;box-sizing:border-box;top:60%;left:50%;transform:translateX(-50%);display:grid;gap:8px;padding:14px 20px;text-align:center;background:#fff8ecf2;color:#29252e;border:3px solid #29252e;border-radius:12px;pointer-events:none;font:700 16px Arial,sans-serif}.dog-notice[hidden]{display:none}.dog-notice strong{font-size:22px}.dog-notice #dog-count{font-size:24px}
+
+/* Gesture instructions stay inside the lower-half notices and never intercept touch. */
+.gesture-hint{display:block;width:128px;height:56px;margin:0 auto;color:#59404a;overflow:visible;pointer-events:none}
+.gesture-track{opacity:.45}
+.gesture-swipe .gesture-finger{animation:gesture-swipe 2.6s ease-in-out infinite}
+.gesture-tap .gesture-finger{animation:gesture-tap 1.6s ease-in-out infinite}
+.gesture-ripple{transform-box:fill-box;transform-origin:center;animation:gesture-ripple 1.6s ease-out infinite}
+.trap-notice .gesture-hint{margin:7px auto 2px}
+.dog-notice{gap:5px;padding:10px 14px}
+.dog-notice>span:not(#dog-count){font-size:14px;line-height:1.3}
+@keyframes gesture-swipe{0%,100%{transform:translateX(-23px)}50%{transform:translateX(23px)}}
+@keyframes gesture-tap{0%,65%,100%{transform:translateY(-4px)}30%,42%{transform:translateY(3px)}}
+@keyframes gesture-ripple{0%,25%{opacity:0;transform:scale(.6)}35%{opacity:.65;transform:scale(.8)}75%,100%{opacity:0;transform:scale(1.45)}}
+@media(prefers-reduced-motion:reduce){.gesture-hint *{animation:none!important}.gesture-ripple{opacity:.45}}

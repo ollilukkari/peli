@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, createGame, startGame, stepGame, tapTrap, strokeDog, pauseGame, resumeGame } from './game.js';
+import { WIDTH, HEIGHT, PHYSICS, createGame, startGame, stepGame, tapTrap, strokeDog, pauseGame, resumeGame } from './game.js';
 import { drawGame } from './render.js';
 import { GameAudio } from './audio.js';
 import { setupPwa } from './pwa.js';
@@ -50,6 +50,7 @@ const audio = new GameAudio(settings.sound, settings.music);
 let game = createGame(20260918);
 let joystick = null;
 let petGesture = null;
+let petEffects = { time: 0, hearts: [] };
 let accumulator = 0;
 let previousTime = 0;
 let updateReady = false;
@@ -100,12 +101,13 @@ function processEvents() {
   for (const event of game.events.splice(0)) {
     audio.play(event.type, settings.theme);
     if (event.type === 'dog') {
+      petEffects = { time: 0, hearts: [] };
       clearInput();
       announce('Silitä koiraa pyyhkäisemällä ruutua kymmenen kertaa. Hiirellä pidä painike pohjassa ja vedä.');
     }
     if (event.type === 'trap') {
       clearInput();
-      announce('Jalka jäi ansaan. Napauta neljä kertaa tai paina nuolinäppäimiä tai välilyöntiä neljästi.');
+      announce('Jalka jäi ansaan. Napauta kahdeksan kertaa tai paina nuolinäppäimiä tai välilyöntiä kahdeksasti.');
     }
     if (event.type === 'satsuma') announce(`${game.bubble} Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} satsuman kombo!` : ''}`);
     if (event.type === 'release') announce('Vapaa!');
@@ -114,6 +116,7 @@ function processEvents() {
   }
 }
 function startRound() {
+  petEffects = { time: 0, hearts: [] };
   clearInput();
   downPointers.clear();
   audio.unlock();
@@ -142,6 +145,7 @@ function finishRound() {
   $('#restart').focus({ preventScroll: true });
 }
 function showMenu() {
+  petEffects = { time: 0, hearts: [] };
   clearInput();
   game = createGame(20260918);
   accumulator = 0;
@@ -186,7 +190,7 @@ function refreshUi() {
   if (trapped !== wasTrapped || game.trapTaps !== lastTapCount) {
     trapNotice.hidden = !trapped;
     if (trapped) {
-      $('#trap-dots').textContent = Array.from({ length: 4 }, (_, index) => index < game.trapTaps ? '●' : '○').join(' ');
+      $('#trap-dots').textContent = Array.from({ length: PHYSICS.trapTaps }, (_, index) => index < game.trapTaps ? '●' : '○').join(' ');
     }
     wasTrapped = trapped;
     lastTapCount = game.trapTaps;
@@ -291,7 +295,9 @@ canvas.addEventListener('pointermove', (event) => {
     const previous = petGesture.direction;
     // One stroke per deliberate direction; a long drag cannot count repeatedly.
     if (!previous || direction.x * previous.x + direction.y * previous.y < -0.5) {
-      strokeDog(game);
+      if (strokeDog(game)) {
+        petEffects.hearts.push({ born: petEffects.time, stroke: game.dogStrokes });
+      }
       petGesture.direction = direction;
       processEvents();
       refreshUi();
@@ -386,6 +392,9 @@ function loop(milliseconds) {
     // A suspended/overloaded browser must not fast-forward the bunny into a loss.
     if (elapsed > .3) togglePause();
     else {
+      // Presentation keeps moving during petting, while world physics stays frozen.
+      petEffects.time += elapsed;
+      petEffects.hearts = petEffects.hearts.filter((heart) => petEffects.time - heart.born < 1.4);
       accumulator += elapsed;
       while (accumulator >= 1 / 120 && game.phase === 'playing') {
         stepGame(game, 1 / 120, getAxis());
@@ -394,7 +403,7 @@ function loop(milliseconds) {
       }
     }
   } else accumulator = 0;
-  drawGame(ctx, game, { theme: settings.theme, time: milliseconds / 1000, joystick, reducedMotion: reducedMotion.matches });
+  drawGame(ctx, game, { theme: settings.theme, time: milliseconds / 1000, joystick, petEffects, reducedMotion: reducedMotion.matches });
   refreshUi();
   requestAnimationFrame(loop);
 }

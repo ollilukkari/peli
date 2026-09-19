@@ -20,10 +20,10 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 - **Tietokone:** liiku vasemmalla ja oikealla nuolinäppäimellä. Pelialue pysyy pystysuuntaisena myös suurella näytöllä.
 - **Satsuma:** hyppää hedelmän päälle saadaksesi kolminkertaisen hyppykorkeuden.
 - **Satsumaketju:** jokainen tehohyppy varmistaa seuraavan satsuman hyppyulottuville olemassa olevalle tasolle. Kolme peräkkäistä satsumaa käynnistää kombolaskurin ja jokaisesta seuraavasta satsumasta ponnahtavan tähtitehosteen. Laskeutuminen ilman satsumaa katkaisee kombon; pisteet mittaavat edelleen matkaa.
-- **Ansa:** neljä uutta napautusta vapauttaa pupun. Tietokoneella paina mitä tahansa nuolinäppäintä tai välilyöntiä neljä erillistä kertaa. Näppäimen pitäminen pohjassa ei ole useita tökkäisyjä.
+- **Ansa:** kahdeksan uutta napautusta vapauttaa pupun. Tietokoneella paina mitä tahansa nuolinäppäintä tai välilyöntiä kahdeksan erillistä kertaa. Näppäimen pitäminen pohjassa ei ole useita tökkäisyjä.
 - **Kakka:** liukastut tulosuunnassa; suurempi sivuttaisnopeus aiheuttaa pidemmän ja nopeamman liu'un. Esineet aktivoituvat laskeuduttaessa niiden päälle.
-- **Lokki:** sik-sak lentävään lokkiin osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise satsumaketjua.
-- **Koira:** tepastelee tasolla 1 000–2 000 metrin välein. Viereen laskeutuminen pysäyttää pelin siksi aikaa, että silität koiraa 10 pyyhkäisyllä. Hiirellä pidä painike pohjassa ja vedä edestakaisin.
+- **Linnut:** kesällä lokkeja, syksyllä sorsia ja talvella harakoita. Sik-sak lentävään lintuun osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise satsumaketjua.
+- **Koira:** tepastelee tasolla 1 000–2 000 metrin välein. Viereen laskeutuminen pysäyttää pelin siksi aikaa, että silität koiraa 10 pyyhkäisyllä. Koira näkyy suurennettuna himmennetyn pelin edessä, ja jokainen pyyhkäisy synnyttää sydämiä. Hiirellä pidä painike pohjassa ja vedä edestakaisin.
 - **Tauko:** paina taukopainiketta tai Escapea. Taustalle siirtyminen keskeyttää kierroksen.
 
 Alareunaan putoaminen päättää kierroksen kolmisäveliseen, noin sekunnin mittaiseen ”di-dy-dyy”-ääniefektiin. Pisteet mittaavat edettyä matkaa. Tasojen leveys pienenee aina 10 % edellisestä leveydestä 250 metrin välein (100 %, 90 %, 81 %, …), vähintään 70 pikseliin. Kavennus määräytyy tason korkeudesta; jo luodut tasot eivät kutistu kesken hypyn.

@@ -127,7 +127,7 @@ test('an exact apex step cannot divide a zero vertical displacement', () => {
   assert.equal(game.player.vy, PHYSICS.jumpSpeed);
 });
 
-test('four trap taps release immediately and used traps do not catch twice', () => {
+test('eight trap taps release immediately and used traps do not catch twice', () => {
   const game = landingGame('trap');
   stepGame(game, DT);
   const trappedY = game.player.y;
@@ -139,7 +139,7 @@ test('four trap taps release immediately and used traps do not catch twice', () 
   assert.equal(game.score, score);
   assert.ok(game.camera > camera);
 
-  for (let count = 1; count < 4; count += 1) {
+  for (let count = 1; count < 8; count += 1) {
     assert.equal(tapTrap(game), true);
     assert.equal(game.trapTaps, count);
     assert.equal(game.player.state, 'trapped');
@@ -147,7 +147,7 @@ test('four trap taps release immediately and used traps do not catch twice', () 
   assert.equal(tapTrap(game), true);
   assert.equal(game.player.state, 'air');
   assert.equal(game.player.vy, PHYSICS.jumpSpeed);
-  assert.equal(game.trapTaps, 4);
+  assert.equal(game.trapTaps, 8);
   assert.equal(tapTrap(game), false);
   Object.assign(game.player, { y: 150.1, vy: -60 });
   stepGame(game, DT);

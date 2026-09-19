@@ -129,17 +129,17 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   };
 }
 
-test('four arrow presses free the bunny and the freeing key cannot steer until released', () => {
+test('eight arrow presses free the bunny and the freeing key cannot steer until released', () => {
   const app = application();
   app.trap();
-  for (const code of ['ArrowUp', 'ArrowLeft', 'ArrowDown']) {
+  for (const code of ['ArrowUp', 'ArrowLeft', 'ArrowDown', 'Space', 'ArrowUp', 'ArrowLeft', 'ArrowDown']) {
     assert.equal(app.key('keydown', code).defaultPrevented, true);
     app.key('keyup', code);
   }
-  assert.equal(app.game.trapTaps, 3);
+  assert.equal(app.game.trapTaps, 7);
   assert.equal(app.game.player.state, 'trapped');
   app.key('keydown', 'ArrowRight');
-  assert.equal(app.game.trapTaps, 4);
+  assert.equal(app.game.trapTaps, 8);
   assert.equal(app.game.player.state, 'air');
   assert.ok(app.game.player.vy > 0);
   assert.equal(app.axis(), 0);
@@ -191,23 +191,23 @@ test('a lower-half joystick continues above its start area and ends on pointerup
   assert.equal(app.axis(), 0);
 });
 
-test('the fourth trap touch is consumed and only a fresh touch starts the next joystick', () => {
+test('the eighth trap touch is consumed and only a fresh touch starts the next joystick', () => {
   const app = application();
   app.trap();
-  for (let index = 1; index <= 3; index++) {
+  for (let index = 1; index <= 7; index++) {
     app.pointer('pointerdown', index);
-    app.pointer('pointerup', index, 120, 480, app.window);
+    app.pointer('pointerup', index, 120, 880, app.window);
   }
-  app.pointer('pointerdown', 4);
+  app.pointer('pointerdown', 8);
   assert.equal(app.game.player.state, 'air');
-  app.pointer('pointermove', 4, 260, 490);
+  app.pointer('pointermove', 8, 260, 890);
   assert.equal(app.axis(), 0);
   assert.equal(app.inspect('joystick'), null);
-  app.pointer('pointerdown', 4, 140, 490);
+  app.pointer('pointerdown', 8, 140, 890);
   assert.equal(app.inspect('joystick'), null, 'a duplicate event is not a new touch');
-  app.pointer('pointerup', 4, 260, 490, app.window);
-  app.pointer('pointerdown', 4, 120, 490);
-  app.pointer('pointermove', 4, 230, 490);
+  app.pointer('pointerup', 8, 260, 890, app.window);
+  app.pointer('pointerdown', 8, 120, 890);
+  app.pointer('pointermove', 8, 230, 890);
   assert.equal(app.axis(), 1);
 });
 
@@ -476,11 +476,14 @@ test('dog strokes reject taps, jitter, extra fingers and long drags; ten reversa
   app.pointer('pointerdown', 2, 100, 400);
   app.pointer('pointermove', 2, 200, 400);
   assert.equal(app.game.dogStrokes, 0);
+  assert.equal(app.inspect('petEffects.hearts.length'), 0);
   app.pointer('pointermove', 1, 150, 400);
   app.pointer('pointermove', 1, 210, 400);
   assert.equal(app.game.dogStrokes, 1, 'a continuous long drag counts only once');
+  assert.equal(app.inspect('petEffects.hearts.length'), 1);
   for (let i = 0; i < 9; i++) app.pointer('pointermove', 1, i % 2 ? 210 : 100, 400);
   assert.equal(app.game.dogStrokes, 10);
+  assert.equal(app.inspect('petEffects.hearts.length'), 10, 'the final stroke also creates hearts');
   assert.equal(app.game.player.state, 'air');
   assert.equal(app.element('#dog-notice').hidden, true);
   assert.equal(app.axis(), 0, 'the final stroke is consumed');
@@ -500,4 +503,25 @@ test('canceled dog gesture and blur cannot produce ghost strokes after resume', 
   app.element('#resume').dispatch('click');
   app.pointer('pointermove', 2, 200, 400);
   assert.equal(app.game.dogStrokes, 0);
+});
+
+
+test('petting animation advances with frozen physics, pauses on blur and clears expired hearts', () => {
+  const app = application();
+  app.game.platforms[0].dog = { x: 180, petted: false };
+  Object.assign(app.game.player, { state: 'petting', platformId: 0 });
+  app.pointer('pointerdown', 1, 100, 400);
+  app.pointer('pointermove', 1, 150, 400);
+  const worldTime = app.game.time;
+  app.inspect('loop(1000); loop(1100)');
+  assert.ok(app.inspect('petEffects.time') > 0);
+  assert.equal(app.game.time, worldTime);
+  app.window.dispatch('blur');
+  const visualTime = app.inspect('petEffects.time');
+  app.inspect('loop(1200)');
+  assert.equal(app.inspect('petEffects.time'), visualTime);
+  app.element('#resume').dispatch('click');
+  for (let time = 1300; time <= 2800; time += 100) app.inspect(`loop(${time})`);
+  assert.equal(app.inspect('petEffects.hearts.length'), 0);
+  assert.equal(app.game.time, worldTime);
 });
