@@ -30,7 +30,7 @@ Jokainen satsumahyppy varmistaa seuraavan satsuman saavutettavalle korkeudelle. 
 
 Ketjun seuraava satsuma sijoitetaan valmiille saavutettavalle tasolle: ketju ei luo toisten tasojen sisään uusia tasoja. Nykyinen kolminkertainen hyppykorkeus säilyy. Esineet piirretään tasojen eteen. Ansan päällä näytetään ”TÖKI!” ja etenemispisteet ilman jäljellä olevien painallusten ohjelausetta.
 
-Ensimmäisestä peräkkäisestä herkusta alkaen jokainen herkku tuo ruudulle hetkellisen, suuren komboilmoituksen (”1!”, ”2!”, ”3!” jne.) tähtitehosteineen. Ilmoituksen paikka vaihtelee peliruudun puolivälin alapuolella ja jättää yläosan näkyviin. Vähennetyn liikkeen asetuksella käytetään paikallaan pysyvää ilmoitusta.
+Ensimmäisestä peräkkäisestä herkusta alkaen jokainen herkku tuo ruudulle hetkellisen, suuren komboilmoituksen (”1”, ”2”, ”3” jne.) tähtitehosteineen. Ilmoituksen paikka vaihtelee peliruudun puolivälin alapuolella ja jättää yläosan näkyviin. Vähennetyn liikkeen asetuksella käytetään paikallaan pysyvää ilmoitusta.
 
 ## Esitystapa
 
@@ -62,4 +62,4 @@ Joystickin herkkyys, sivuttaisliikkeen kiihtyvyys ja jarrutus, liu'un tuntuma, k
 
 Otuksia taputellaan 10 napautuksella tai erillisellä vasemman/oikean nuolen painalluksella. Pyyhkäisyt eivät tuota lisätaputuksia. Otsikko on ”Taputtele otusta!”. Koiran taputtelu antaa 100 metrin ampaisun; Zabin ampaisu on 300 metriä. Ansat vaativat 10 napautusta.
 
-Vähintään 10 herkun kombon katkeaminen lisää aina Zabin ruudun yläpuoliselle tyhjälle tasolle tavallisen vierityksen mukana näkyviin. Säännölliset kohtaamisvälit säilyvät. Kombon aikana pupun ympärillä on liukuvasti sateenkaaren väreissä vaihtuva hehku: kombo 1–10 vastaa 10–100 % voimakkuutta, yli 10 säilyy 100 %:ssa. Katkennut kombo sammuttaa hehkun. Näkyvään pelialueeseen lisätty herkku kasvaa ja häivyttyy näkyviin 0,3 sekunnissa. Animaatiot noudattavat peliaikaa ja taukoja; vähennetty liike poistaa kasvamisen ja hehkun väriliikkeen.
+Vähintään 10 herkun kombon katkeaminen lisää aina Zabin ruudun yläpuoliselle tyhjälle tasolle tavallisen vierityksen mukana näkyviin. Säännölliset kohtaamisvälit säilyvät. Kombon aikana pupun ympärillä on liukuvasti sateenkaaren väreissä vaihtuva hehku: hehku alkaa kombotasosta 3 voimakkuudella 10 % ja kasvaa tasaisesti kombotasoon 10, jossa voimakkuus on 40 %. Suuremmat kombot säilyttävät 40 % voimakkuuden. Kombosta 8 alkaen pupun ympärillä säkenöi tähtiä: niiden kirkkaus kasvaa tasoilla 8–10 kolmasosasta täyteen kirkkauteen ja pysyy sen jälkeen samana. Katkennut kombo sammuttaa hehkun. Näkyvään pelialueeseen lisätty herkku kasvaa ja häivyttyy näkyviin 0,3 sekunnissa. Animaatiot noudattavat peliaikaa ja taukoja; vähennetty liike poistaa kasvamisen, hehkun väriliikkeen sekä tähtien liikkeen ja välkkeen.

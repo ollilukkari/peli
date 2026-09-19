@@ -1357,8 +1357,10 @@ export function drawZab(ctx, pet, feetY, time, petting = false, showHeart = true
 }
 
 function drawComboGlow(ctx, game, bunnyY, reducedMotion, launchStretch) {
-  const strength = Math.min(10, game.satsumaStreak) / 10;
-  if (strength <= 0) return;
+  if (game.satsumaStreak < 3) return;
+  const level = Math.min(10, game.satsumaStreak);
+  const strength = (1 + (level - 3) * 3 / 7) / 10;
+  const opacity = ctx.globalAlpha;
   // Simulation time freezes the hue on pause. Reduced motion keeps a steady hue.
   const hue = reducedMotion ? 180 : (game.time * 60) % 360;
   ctx.save();
@@ -1368,6 +1370,19 @@ function drawComboGlow(ctx, game, bunnyY, reducedMotion, launchStretch) {
   pixelOval(ctx, `hsla(${hue}, 100%, 65%, 0.18)`, -40, -70, 80, 87, 8);
   pixelOval(ctx, `hsla(${(hue + 35) % 360}, 100%, 72%, 0.28)`, -32, -63, 64, 74, 6);
   pixelOval(ctx, `hsla(${(hue + 70) % 360}, 100%, 82%, 0.36)`, -26, -58, 52, 64, 4);
+  if (level >= 8) {
+    const brightness = (level - 7) / 3;
+    // A fixed, small ring of staggered sparkles needs no particle state or allocations.
+    for (let index = 0; index < 8; index += 1) {
+      const angle = index * Math.PI / 4;
+      const phase = game.time / 1.8 + index * 0.37;
+      const twinkle = reducedMotion ? 0.7 : 0.15 + 0.85 * Math.sin(phase * Math.PI) ** 2;
+      const drift = reducedMotion ? 0 : Math.sin(phase * Math.PI * 2) * 2;
+      ctx.globalAlpha = opacity * brightness * twinkle;
+      star(ctx, Math.cos(angle) * (40 + drift), -28 + Math.sin(angle) * (46 + drift),
+        index % 2 ? '#fff4bc' : '#fffbed', index % 3 === 0 ? 2 : 1);
+    }
+  }
   ctx.restore();
 }
 
@@ -1523,7 +1538,7 @@ function drawComboBurst(ctx, game, theme, reducedMotion) {
     : theme === 'kvlt'
       ? { fill: '#d3b5e9', ink: '#38233f', border: '#ffe8ad', spark: '#f8d483' }
       : { fill: '#ffd378', ink: '#65404b', border: '#fff9d7', spark: '#ffbd65' };
-  const label = `${game.satsumaStreak}!`;
+  const label = String(game.satsumaStreak);
   ctx.save();
   ctx.font = 'bold 48px monospace';
   const fontSize = Math.min(48, Math.floor(48 * 228 / ctx.measureText(label).width));

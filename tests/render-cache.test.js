@@ -261,7 +261,7 @@ for (const theme of ['meadow', 'autumn', 'winter', 'kvlt']) {
   });
 }
 
-test('combo glow scales from 10 to 100 percent, caps at ten, cycles hue and stops with the combo', () => {
+test('combo glow starts at three, rises evenly from 10 to 40 percent and caps at ten', () => {
   const render = renderer();
   const game = createGame(7);
   const paint = (streak, time, reduced = false) => {
@@ -271,15 +271,48 @@ test('combo glow scales from 10 to 100 percent, caps at ten, cycles hue and stop
     render.drawComboGlow(ctx, game, 300, reduced, 0);
     return ctx.calls.filter((call) => call.name === 'fillRect');
   };
-  assert.equal(paint(0, 0).length, 0);
-  for (let streak = 1; streak <= 12; streak++) {
-    assert.equal(paint(streak, 0)[0].alpha, Math.min(streak, 10) / 10);
+  for (const streak of [0, 1, 2]) assert.equal(paint(streak, 0).length, 0);
+  const strengths = Array.from({ length: 8 }, (_, index) => paint(index + 3, 0)[0].alpha);
+  assert.equal(strengths[0], 0.1);
+  assert.equal(strengths.at(-1), 0.4);
+  for (let index = 1; index < strengths.length; index++) {
+    assert.ok(Math.abs(strengths[index] - strengths[index - 1] - 0.3 / 7) < 1e-12);
   }
+  assert.deepEqual(paint(10, 0), paint(25, 0));
   assert.notEqual(paint(10, 0)[0].fillStyle, paint(10, 1)[0].fillStyle);
   assert.deepEqual(paint(10, 1, true), paint(10, 2, true));
 });
 
-test('combo splash starts at one and contains only the growing number and exclamation mark', () => {
+test('combo stars start at eight, brighten to ten, freeze with world time and respect reduced motion', () => {
+  const render = renderer();
+  const game = createGame(7);
+  const stars = (level, time, reduced = false) => {
+    const { ctx } = recordingCanvas();
+    ctx.globalAlpha = 0.8;
+    game.satsumaStreak = level;
+    game.time = time;
+    render.drawComboGlow(ctx, game, 300, reduced, 0);
+    assert.equal(ctx.globalAlpha, 0.8, 'drawing restores the enclosing opacity');
+    return ctx.calls.filter((call) => call.name === 'fillRect' && call.fillStyle.startsWith('#'));
+  };
+  for (const level of [0, 2, 3, 7]) assert.equal(stars(level, 1).length, 0);
+  const low = stars(8, 1);
+  const medium = stars(9, 1);
+  const high = stars(10, 1);
+  assert.equal(high.length, 16, 'eight two-stroke stars remain bounded');
+  high.forEach((call, index) => {
+    assert.ok(Math.abs(low[index].alpha * 3 - call.alpha) < 1e-12);
+    assert.ok(Math.abs(medium[index].alpha * 1.5 - call.alpha) < 1e-12);
+    assert.ok(call.alpha > 0 && call.alpha <= 0.8);
+  });
+  assert.deepEqual(high, stars(20, 1));
+  assert.deepEqual(high, stars(10, 1), 'unchanged simulation time freezes the stars');
+  assert.notDeepEqual(high, stars(10, 1.3));
+  assert.deepEqual(stars(10, 1, true), stars(10, 2, true));
+  assert.equal(stars(0, 2).length, 0, 'ending the combo removes every star');
+});
+
+test('combo splash starts at one and contains only the growing number', () => {
   const render = renderer();
   const game = createGame(7);
   game.lastLanding = { type: 'satsuma', time: 0 };
@@ -288,7 +321,7 @@ test('combo splash starts at one and contains only the growing number and exclam
     const { ctx } = recordingCanvas();
     render.drawComboBurst(ctx, game, 'meadow', false);
     const labels = ctx.calls.filter((call) => call.name === 'fillText');
-    assert.deepEqual(labels.map((call) => call.args[0]), [`${streak}!`, `${streak}!`]);
+    assert.deepEqual(labels.map((call) => call.args[0]), [String(streak), String(streak)]);
     assert.equal(ctx.font, 'bold 48px monospace');
     assert.ok(ctx.calls.filter((call) => call.name === 'translate').every((call) => call.args.every(Number.isFinite)));
   }
