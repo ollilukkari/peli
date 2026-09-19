@@ -15,6 +15,8 @@ export const PHYSICS = Object.freeze({
   maxScrollSpeed: 46.8,
   followHeight: HEIGHT * 0.62,
   trapTaps: 4,
+  dogStrokes: 10,
+  dogNearDistance: 38,
   slipMultiplier: 1.2,
   slipDeceleration: 400 / 1.5,
   zeroSlipDuration: 0.22,
@@ -123,10 +125,17 @@ function generatePlatforms(game) {
     const item = itemType ? { type: itemType,
       x: geometry.x + geometry.width / 2 + itemSide * (geometry.width / 2 - 15), used: false } : null;
 
+    const dog = y >= game.nextDogY
+      ? { x: geometry.x + geometry.width / 2, direction: 1, petted: false } : null;
+    if (dog) {
+      game.dogGenerationIndex += 1;
+      game.nextDogY = y + dogInterval(game);
+    }
     insertPlatform(game, {
+      dog,
       id,
       y,
-      item,
+      item: dog ? null : item,
       ...geometry,
     });
     game.generatedTopY = y;
@@ -134,6 +143,36 @@ function generatePlatforms(game) {
     game.generatedSafeWidth = geometry.safeWidth;
     game.generatedSatsumaX = item?.type === 'satsuma' ? item.x : null;
   }
+}
+
+function dogInterval(game) {
+  // Separate deterministic stream: adding a dog does not redraw the route.
+  let value = game.seed ^ Math.imul(game.dogGenerationIndex + 1, 0x45d9f3b);
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+  const fraction = ((value ^ (value >>> 16)) >>> 0) / 4294967296;
+  // Up to 10 m to the next generated ledge still fits the 2,000 m limit.
+  return (1000 + fraction * 990) * PHYSICS.pixelsPerMeter;
+}
+
+function moveDogs(game) {
+  for (const platform of game.platforms) {
+    if (!platform.dog) continue;
+    const walk = reflectedPosition(game.time * 18, platform.width - 32);
+    platform.dog.x = platform.x + 16 + walk.position;
+    platform.dog.direction = walk.direction;
+  }
+}
+
+export function strokeDog(game) {
+  if (game.phase !== 'playing' || game.player.state !== 'petting') return false;
+  game.dogStrokes += 1;
+  if (game.dogStrokes === PHYSICS.dogStrokes) {
+    const platform = game.platforms.find((entry) => entry.id === game.player.platformId);
+    platform.dog.petted = true;
+    game.gullInvulnerableUntil = game.time + PHYSICS.gullCooldown;
+    bounce(game, 1, 'release');
+  }
+  return true;
 }
 
 function gullRandom(game, slot) {
@@ -239,11 +278,15 @@ export function createGame(seed = Date.now()) {
       platformId: null,
       slipRemaining: 0,
     },
+    dogGenerationIndex: 0,
+    nextDogY: 0,
+    dogStrokes: 0,
     trapTaps: 0,
     bubble: null,
     bubbleUntil: 0,
     events: [],
   };
+  game.nextDogY = initialY + dogInterval(game);
   generatePlatforms(game);
   game.nextGullY += gullRandom(game, 0) * 50;
   generateGulls(game);
@@ -291,6 +334,18 @@ function land(game, platform, dt) {
   const hitSatsuma = hitItem && item.type === 'satsuma';
   game.satsumaStreak = hitSatsuma ? game.satsumaStreak + 1 : 0;
   if (!hitSatsuma) game.chainTargetId = null;
+
+  if (platform.dog && !platform.dog.petted
+      && Math.abs(player.x - platform.dog.x) <= PHYSICS.dogNearDistance) {
+    player.state = 'petting';
+    player.platformId = platform.id;
+    player.vx = 0;
+    player.vy = 0;
+    game.dogStrokes = 0;
+    game.bubble = null;
+    emit(game, 'dog');
+    return;
+  }
 
   if (!hitItem) {
     bounce(game);
@@ -458,7 +513,7 @@ function ensureSatsumaTarget(game, dt) {
   }
 
   const eligible = game.platforms.filter((platform) => platform.y > game.player.y
-    && platform.y <= peakY).reverse();
+    && platform.y <= peakY && !platform.dog).reverse();
   for (const platform of eligible) {
     for (const item of [platform.item, platform.chainSatsuma]) {
       if (item?.type !== 'satsuma' || item.used || !hasFruitSpace(game, platform, item.x)) continue;
@@ -579,8 +634,11 @@ export function stepGame(game, dt, axis = 0) {
   if (!Number.isFinite(axis)) throw new TypeError('Movement axis must be finite.');
   if (game.phase !== 'playing' || dt === 0) return;
 
+  // The mandatory petting encounter freezes the world, including the lethal camera.
+  if (game.player.state === 'petting') return;
   const previousTime = game.time;
   game.time += dt;
+  moveDogs(game);
   const gullPaths = moveGulls(game, previousTime);
   axis = clamp(axis, -1, 1);
   if (game.player.state === 'air') stepAir(game, dt, axis, gullPaths);
@@ -590,7 +648,9 @@ export function stepGame(game, dt, axis = 0) {
   game.score = Math.floor((game.maxY - game.startY) / PHYSICS.pixelsPerMeter);
   const difficulty = clamp((game.maxY - game.startY) / 12000, 0, 1);
   const speed = PHYSICS.scrollSpeed + (PHYSICS.maxScrollSpeed - PHYSICS.scrollSpeed) * difficulty;
-  game.camera = Math.max(game.camera + speed * dt, game.player.y - PHYSICS.followHeight);
+  if (game.player.state !== 'petting') {
+    game.camera = Math.max(game.camera + speed * dt, game.player.y - PHYSICS.followHeight);
+  }
   if (game.bubble && game.time >= game.bubbleUntil) game.bubble = null;
 
   if (game.player.y <= game.camera) {

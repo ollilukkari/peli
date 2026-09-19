@@ -23,11 +23,12 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 - **Ansa:** neljä uutta napautusta vapauttaa pupun. Tietokoneella paina mitä tahansa nuolinäppäintä tai välilyöntiä neljä erillistä kertaa. Näppäimen pitäminen pohjassa ei ole useita tökkäisyjä.
 - **Kakka:** liukastut tulosuunnassa; suurempi sivuttaisnopeus aiheuttaa pidemmän ja nopeamman liu'un. Esineet aktivoituvat laskeuduttaessa niiden päälle.
 - **Lokki:** sik-sak lentävään lokkiin osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise satsumaketjua.
+- **Koira:** tepastelee tasolla 1 000–2 000 metrin välein. Viereen laskeutuminen pysäyttää pelin siksi aikaa, että silität koiraa 10 pyyhkäisyllä. Hiirellä pidä painike pohjassa ja vedä edestakaisin.
 - **Tauko:** paina taukopainiketta tai Escapea. Taustalle siirtyminen keskeyttää kierroksen.
 
 Alareunaan putoaminen päättää kierroksen kolmisäveliseen, noin sekunnin mittaiseen ”di-dy-dyy”-ääniefektiin. Pisteet mittaavat edettyä matkaa. Tasojen leveys pienenee aina 10 % edellisestä leveydestä 250 metrin välein (100 %, 90 %, 81 %, …), vähintään 70 pikseliin. Kavennus määräytyy tason korkeudesta; jo luodut tasot eivät kutistu kesken hypyn.
 
-Kesä, syksyinen Ruska ja sinimustaan talviyöhön sijoittuva Talvi käyttävät samaa vaikeutta ja pelimekaniikkaa. Ruskan pupulla on tummanoranssi pipo. Pelin ympäristö sävyttyy valitun maailman mukaan. Hyppytasoissa vaihtelevat maasaarekkeet, lohkareet, kerrokselliset kielekkeet ja juurakkoiset pohjat. Kaikissa on samanlainen selkeä laskeutumisreuna.
+Kesä, syksyinen Ruska ja sinimustaan talviyöhön sijoittuva Talvi käyttävät samaa vaikeutta ja pelimekaniikkaa. Ruskan pupulla on tummanoranssi pipo. Talvipupulla on musta pipo ja kaulahuivi sekä paljaat tassut. Pupuilla on vieno hymy. Corpse paint säilyy koodissa tulevaa skinivalikkoa varten. Pelin ympäristö sävyttyy valitun maailman mukaan. Hyppytasoissa vaihtelevat maasaarekkeet, lohkareet, kerrokselliset kielekkeet ja juurakkoiset pohjat. Kaikissa on samanlainen selkeä laskeutumisreuna.
 
 Isoja taustakoristeita näkyy enintään noin joka kolmannella tasolla, yksi kerrallaan ja epäsäännöllisin välein. Koristeiden koko, suunta ja paikka vaihtelevat, ja tavaroiden viereen jätetään tilaa. Kesässä on saniaisia, päivänkakkaroita, sieniä, kiviä ja kantoja. Ruskassa on pensaita, kurpitsoja, lehtikasoja, kärpässieniä, paljaita oksia ja sammaleisia kantoja. Talvessa on lumiukkoja, lumilyhtyjä, pieniä lumikuusia, lumikiviä, jääkiteitä ja lyhtypylväitä. Koristeet ja tasojen runkomuodot eivät muuta törmäyksiä tai esineiden toimintaa. Komboilmoitukset pysyvät pelialueen alapuoliskolla.
 

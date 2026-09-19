@@ -461,3 +461,43 @@ test('a waiting update remains announced through a round and can only be applied
   assert.equal(button.disabled, false, 'a failed apply remains retryable');
   assert.equal(button.textContent, 'Yritä uudelleen');
 });
+
+
+test('dog strokes reject taps, jitter, extra fingers and long drags; ten reversals release', () => {
+  const app = application();
+  const platform = app.game.platforms[0];
+  platform.dog = { x: 180, direction: 1, petted: false };
+  Object.assign(app.game.player, { state: 'petting', platformId: platform.id });
+  app.game.events.push({ type: 'dog' });
+  app.inspect('processEvents(); refreshUi()');
+  assert.equal(app.element('#dog-notice').hidden, false);
+  app.pointer('pointerdown', 1, 100, 400);
+  app.pointer('pointermove', 1, 110, 405);
+  app.pointer('pointerdown', 2, 100, 400);
+  app.pointer('pointermove', 2, 200, 400);
+  assert.equal(app.game.dogStrokes, 0);
+  app.pointer('pointermove', 1, 150, 400);
+  app.pointer('pointermove', 1, 210, 400);
+  assert.equal(app.game.dogStrokes, 1, 'a continuous long drag counts only once');
+  for (let i = 0; i < 9; i++) app.pointer('pointermove', 1, i % 2 ? 210 : 100, 400);
+  assert.equal(app.game.dogStrokes, 10);
+  assert.equal(app.game.player.state, 'air');
+  assert.equal(app.element('#dog-notice').hidden, true);
+  assert.equal(app.axis(), 0, 'the final stroke is consumed');
+});
+
+test('canceled dog gesture and blur cannot produce ghost strokes after resume', () => {
+  const app = application();
+  app.game.platforms[0].dog = { x: 180, petted: false };
+  Object.assign(app.game.player, { state: 'petting', platformId: 0 });
+  app.pointer('pointerdown', 1, 100, 400);
+  app.pointer('pointercancel', 1, 100, 400, app.window);
+  app.pointer('pointermove', 1, 200, 400);
+  assert.equal(app.game.dogStrokes, 0);
+  app.pointer('pointerdown', 2, 100, 400);
+  app.window.dispatch('blur');
+  assert.equal(app.canvas.hasPointerCapture(2), false);
+  app.element('#resume').dispatch('click');
+  app.pointer('pointermove', 2, 200, 400);
+  assert.equal(app.game.dogStrokes, 0);
+});
