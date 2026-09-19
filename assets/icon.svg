@@ -1,5 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" shape-rendering="crispEdges">
   <title>Pomputtelu — round summer bunny on a green background</title>
+  <defs>
+    <clipPath id="rounded-icon">
+      <rect width="192" height="192" rx="38"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#rounded-icon)">
   <rect width="192" height="192" rx="38" fill="#dbe9c5"/>
   <path d="M0 142h24v-8h32v8h40v-12h40v8h32v-6h24v60H0z" fill="#acc99c"/>
   <path d="M32 166h128v8H32z" fill="#749777"/>
@@ -88,4 +94,5 @@
     <rect x="5" y="-4" width="9" height="2" fill="#fffbee"/>
   </g>
   <path d="M150 50h4v-8h4v8h8v4h-8v8h-4v-8h-4zm-122 42h4v-4h4v4h4v4h-4v4h-4v-4h-4z" fill="#fffbee"/>
+  </g>
 </svg>
