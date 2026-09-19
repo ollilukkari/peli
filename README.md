@@ -22,8 +22,11 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 - **Tietokone:** ohjaa vasemmalla ja oikealla nuolinäppäimellä. Escape avaa tauon.
 - **Napautukset:** napauta ruutua, klikkaa hiirellä tai paina ohjeen mukaisia näppäimiä erikseen. Pohjassa pitäminen ja pyyhkäisy eivät lisää napautuksia.
 
-Tasojen reunoille ilmestyy trampoliineja: laskeutuminen matolle ampaisee pupun
-50 metriä ylöspäin maton korkeudelta. Trampoliinit seisovat tason päällä.
+Tasojen reunoille ilmestyy trampoliineja: osuminen ampaisee pupun
+50 metriä ylöspäin osumakorkeudelta. Alhaalta tasolle noustessa laskeutuminen
+trampoliinin kohdalle riittää, vaikka hyppy ei yllä maton korkeudelle.
+Ampaisu käynnistyy ensimmäisellä laskeutumisella ilman välipomppua.
+Trampoliinit seisovat tason päällä.
 Sivuttaisohjaus toimii myös ampaisun aikana. Trampoliini kasvattaa herkkukomboa
 yhdellä ja tarjoaa seuraavan herkun kombon jatkamiseen. Välipalat
 keinuvat kevyesti. Vähennetyn liikkeen asetuksella keinunta pysähtyy.
