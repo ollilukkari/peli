@@ -47,12 +47,50 @@ test('trampoline stays reusable and a miss still makes an ordinary jump', () => 
   assert.equal(game.player.vy, PHYSICS.jumpSpeed);
 });
 
-test('crossing below the raised mat does not trigger a trampoline launch', () => {
+test('landing at trampoline ground level launches immediately without a second bounce', () => {
   const { game, platform } = setup();
   game.player.y = platform.y + .1;
   stepGame(game, DT);
-  assert.equal(game.events.at(-1).type, 'bounce');
+  assert.equal(game.events.at(-1).type, 'trampoline');
   assert.equal(game.player.y, platform.y);
+  assert.equal(game.satsumaStreak, 1);
+  assert.ok(Math.abs(game.player.vy ** 2 / (2 * PHYSICS.gravity) / PHYSICS.pixelsPerMeter - 50) < 1e-10);
+});
+
+test('a jump from below that cannot reach the mat launches on its first landing and counts once', () => {
+  for (const dt of [1 / 120, 1 / 60, .04]) {
+    const { game, platform } = setup();
+    // The natural apex is 10 px above the ledge, below the 17 px mat.
+    Object.assign(game.player, { y: platform.y - 50, vy: Math.sqrt(2 * PHYSICS.gravity * 60) });
+    game.satsumaStreak = 9;
+    let peak = game.player.y;
+    for (let frame = 0; frame < 200 && !game.events.length; frame++) {
+      stepGame(game, dt);
+      peak = Math.max(peak, game.player.y);
+    }
+    assert.ok(peak > platform.y && peak < platform.y + PHYSICS.trampolineHeight);
+    assert.equal(game.events[0]?.type, 'trampoline');
+    assert.equal(game.player.y, platform.y);
+    assert.equal(game.satsumaStreak, 10);
+    assert.equal(game.platforms.filter((p) => p.dog?.comboReward).length, 0);
+    assert.ok(Math.abs(game.player.vy ** 2 / (2 * PHYSICS.gravity) / PHYSICS.pixelsPerMeter - 50) < 1e-10);
+    assert.ok(game.platforms.some((p) => p.id === game.chainTargetId));
+    stepGame(game, dt);
+    assert.equal(game.events.filter((event) => event.type === 'trampoline').length, 1);
+    assert.equal(game.satsumaStreak, 10);
+    assert.ok(game.player.y > platform.y);
+  }
+});
+
+test('rising beside a trampoline or too far below it does not launch', () => {
+  for (const state of [{ x: 160, offset: .1, vy: 300 }, { x: 220, offset: 50, vy: 30 }]) {
+    const { game, platform } = setup();
+    Object.assign(game.player, { x: state.x,
+      y: platform.y + PHYSICS.trampolineHeight - PHYSICS.playerHeight - state.offset, vy: state.vy });
+    stepGame(game, DT);
+    assert.equal(game.events.length, 0);
+    assert.equal(game.satsumaStreak, 0);
+  }
 });
 
 test('trampolines occur in generated routes across seeds without sharing a pet ledge', () => {

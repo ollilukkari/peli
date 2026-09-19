@@ -497,10 +497,10 @@ test('real physics can land safely after sampled jumps from either patch edge an
           const context = `seed ${seed}, platform ${next.id}, side ${side}, velocity ${startVx}`;
           assert.ok(['bounce', 'dog', 'trampoline'].includes(result.events[0]?.type), context);
           if (result.events[0]?.type === 'trampoline') {
-            // A raised mat can intercept the approach before the ground patch.
+            // Both the raised mat and the ledge beneath it launch immediately.
             assert.equal(next.item.type, 'trampoline', context);
             assert.ok(Math.abs(result.player.x - next.item.x) <= PHYSICS.playerWidth / 2 + PHYSICS.itemHalfWidth, context);
-            assert.equal(result.player.y, next.y + PHYSICS.trampolineHeight, context);
+            assert.ok(result.player.y === next.y || result.player.y === next.y + PHYSICS.trampolineHeight, context);
             assert.ok(Math.abs(result.player.vy ** 2 / (2 * PHYSICS.gravity) - 50 * PHYSICS.pixelsPerMeter) < 1e-8, context);
           } else {
             assert.ok(Math.abs(result.player.x - next.safeX) <= next.safeWidth / 2, context);

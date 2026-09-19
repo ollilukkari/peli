@@ -479,9 +479,7 @@ export function tapTrap(game) {
 function land(game, platform, dt, landingY) {
   const player = game.player;
   player.y = landingY;
-  let item = landingItem(platform, player.x);
-  // A side entry below the mat reaches the ground, not the jumping surface.
-  if (item?.type === 'trampoline' && landingY === platform.y) item = null;
+  const item = landingItem(platform, player.x);
   const hitItem = item !== null;
   game.lastLanding = {
     x: player.x, y: landingY, time: game.time, type: hitItem ? item.type : 'normal',
