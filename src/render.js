@@ -1309,9 +1309,22 @@ export function drawDog(ctx, dog, feetY, time, petting = false, showHeart = true
   ctx.restore();
 }
 
-export function drawZab(ctx, pet, feetY, time, petting = false, showHeart = true) {
+export function drawZab(ctx, pet, feetY, time, petting = false, showHeart = true, reducedMotion = false) {
   ctx.save();
   ctx.translate(Math.round(pet.x), Math.round(feetY));
+  if (pet.returning && pet.entryLift > 0 && !petting) {
+    ctx.translate(0, -pet.entryLift);
+    if (!reducedMotion) {
+      ctx.translate(0, -14);
+      ctx.rotate((1 - pet.entryProgress) * Math.PI * 2);
+      ctx.translate(0, 14);
+    }
+  }
+  if (petting) {
+    const delight = Math.sin(time * 7);
+    ctx.translate(delight * .7, -(1 - Math.cos(time * 7)) * 1.2);
+    ctx.scale(1 + delight * .04, 1 - delight * .05);
+  }
   ctx.scale(pet.direction * 0.5, 0.5);
   const ink = '#2d3c23';
   const shadow = '#496328';
@@ -1499,7 +1512,7 @@ export function drawPettingScene(ctx, game, effects, reducedMotion = false) {
     ctx.save();
     ctx.translate(WIDTH / 2, HEIGHT * 0.49);
     ctx.scale(4.5, 4.5);
-    drawPet(ctx, { x: 0, direction: 1 }, 0, reducedMotion ? 0 : time, true, false);
+    drawPet(ctx, { x: 0, direction: 1 }, 0, reducedMotion ? 0 : time, true, false, reducedMotion);
     ctx.restore();
   }
   for (const heart of effects?.hearts ?? []) {
@@ -1719,7 +1732,7 @@ export function drawGame(ctx, game, options = {}) {
     if (platform.dog && screenY(platform.y) >= -50 && screenY(platform.y) <= HEIGHT + 50) {
       const drawPet = platform.dog.kind === 'zab' ? drawZab : drawDog;
       drawPet(ctx, platform.dog, screenY(platform.y), visualTime,
-        game.player.state === 'petting' && game.player.platformId === platform.id);
+        game.player.state === 'petting' && game.player.platformId === platform.id, true, reducedMotion);
     }
   }
   const player = game.player;

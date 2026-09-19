@@ -11,7 +11,7 @@ const renderSource = readFileSync(new URL('../src/render.js', import.meta.url), 
 function renderer() {
   return vm.runInNewContext(`${renderSource}\n({
     drawGame, drawBackground, drawCachedPlatform, drawPlatformScenery,
-    drawComboGlow, drawComboBurst, drawSpawnedFruit, drawPettingScene,
+    drawComboGlow, drawComboBurst, drawSpawnedFruit, drawPettingScene, drawZab,
     platformHash, palettes, cacheFor: (ctx) => artworkCaches.get(ctx),
   });`, { PHYSICS }, { filename: 'src/render.js' });
 }
@@ -33,7 +33,7 @@ function recordingCanvas() {
     const ctx = { canvas, calls, globalAlpha: 1, fillStyle: '#000' };
     const states = [];
     for (const name of ['fillRect', 'clearRect', 'beginPath', 'closePath', 'moveTo',
-      'lineTo', 'fill', 'stroke', 'arc', 'translate', 'scale', 'transform', 'fillText', 'drawImage']) {
+      'lineTo', 'fill', 'stroke', 'arc', 'translate', 'rotate', 'scale', 'transform', 'fillText', 'drawImage']) {
       ctx[name] = (...args) => {
         calls.push({ name, args, fillStyle: ctx.fillStyle, alpha: ctx.globalAlpha });
         if (['fillRect', 'fill', 'stroke', 'fillText'].includes(name)) {
@@ -362,6 +362,42 @@ test('the petting dog animates on presentation time while physics stays frozen a
   const happy = paint(.15);
   assert.notDeepEqual(happy, still);
   assert.ok(happy.some((call) => call.name === 'scale' && call.args[0] > 1 && call.args[0] < 1.03));
+  assert.deepEqual(paint(.15, true), paint(.8, true));
+  assert.deepEqual(game, before);
+});
+
+test('Zab somersaults during its return and omits rotation with reduced motion', () => {
+  const render = renderer();
+  const dog = { x: 180, direction: 1, returning: true, entryLift: 80, entryProgress: .25 };
+  const paint = (reduced = false) => {
+    const { ctx } = recordingCanvas();
+    render.drawZab(ctx, dog, 70, 1, false, true, reduced);
+    return ctx.calls;
+  };
+  const calls = paint();
+  assert.ok(calls.some((call) => call.name === 'translate' && call.args[1] === -80));
+  assert.ok(calls.some((call) => call.name === 'rotate' && call.args[0] === Math.PI * 1.5));
+  assert.ok(!paint(true).some((call) => call.name === 'rotate'));
+  dog.entryLift = 0;
+  dog.entryProgress = 1;
+  assert.ok(!paint().some((call) => call.name === 'rotate'));
+});
+
+test('the petting Zab sways and stretches on presentation time without moving the frozen world', () => {
+  const render = renderer();
+  const game = createGame(7);
+  game.phase = 'playing';
+  game.player.state = 'petting';
+  game.player.platformId = game.platforms[0].id;
+  game.platforms[0].dog = { kind: 'zab', x: 180, direction: 1, petted: false };
+  const before = structuredClone(game);
+  const paint = (time, reduced = false) => {
+    const { ctx } = recordingCanvas();
+    render.drawPettingScene(ctx, game, { time, hearts: [] }, reduced);
+    return ctx.calls;
+  };
+  assert.notDeepEqual(paint(0), paint(.15));
+  assert.ok(paint(.15).some((call) => call.name === 'scale' && call.args[0] > 1 && call.args[1] < 1));
   assert.deepEqual(paint(.15, true), paint(.8, true));
   assert.deepEqual(game, before);
 });

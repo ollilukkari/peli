@@ -32,6 +32,10 @@ voimakkuudella. Kakkaan astuttaessa pupu sanoo ”Hyi!”, ”Kääk!” tai ”
 Vähintään kymmenen herkun tai trampoliinin kombon päättyessä ylimääräinen Zab
 liukuu sivusta peliruudun yläreunassa saapuvalle vapaalle tasolle 0,55 sekunnissa.
 Liuku alkaa vasta tason saavuttaessa yläreunan, joten se näkyy kokonaan.
+Jos kombopalkinnon Zab jää taputtelematta ja vierii ruudun alle, se palaa
+ylhäältä kuperkeikalla vapaalle ylätasolle. Paluu kestää 0,75 sekuntia
+tason ollessa näkyvissä ja toistuu, kunnes otusta on taputeltu.
+Myös Zab keinuu ja joustaa iloisesti taputtelun aikana.
 Taputeltava koira keinahtelee iloisesti, heiluttaa häntäänsä ja läähättää.
 Animaatio käyttää taputtelun omaa kelloa muun kentän ollessa pysähdyksissä,
 ja vähennetyn liikkeen asetuksella koiran asento pysyy paikallaan.

@@ -34,6 +34,7 @@ export const PHYSICS = Object.freeze({
   trampolineRiseMeters: 50,
   trampolineHeight: 17,
   comboCreatureEntryDuration: 0.55,
+  comboCreatureReturnDuration: 0.75,
   comboCreatureTopInset: 32,
   safeWidth: 40,
   gullWidth: 30,
@@ -174,20 +175,38 @@ function generatePlatforms(game, targetY = game.camera + HEIGHT + NORMAL_HEIGHT 
   }
 }
 
-function spawnComboCreature(game) {
+function spawnComboCreature(game, returning = false) {
   // Reserve the first free ledge arriving at the top edge. Its 32 px inset
   // leaves the hamster's antennae just inside the viewport when it slides in.
-  const minimumY = game.camera + HEIGHT - PHYSICS.comboCreatureTopInset;
-  const available = () => game.platforms.find((entry) => entry.y >= minimumY && !entry.dog
-    && (!entry.item || entry.item.used) && (!entry.chainSatsuma || entry.chainSatsuma.used));
+  const topY = game.camera + HEIGHT - PHYSICS.comboCreatureTopInset;
+  const minimumY = returning ? game.camera + HEIGHT * .65 : topY;
+  const available = () => {
+    const free = game.platforms.filter((entry) => entry.y >= minimumY && !entry.dog
+      && (!entry.item || entry.item.used) && (!entry.chainSatsuma || entry.chainSatsuma.used));
+    // A return can drop onto an already visible top ledge without waiting for
+    // another stretch of the route to scroll in. Keep every ledge and item intact.
+    if (returning) return free.filter((entry) => entry.y <= topY).at(-1) ?? free[0];
+    return free[0];
+  };
   let platform = available();
   while (!platform) {
     generatePlatforms(game, Math.max(minimumY + NORMAL_HEIGHT * 3, game.generatedTopY + 120));
     platform = available();
   }
   const fromX = platform.safeX < WIDTH / 2 ? -44 : WIDTH + 44;
-  platform.dog = { kind: 'zab', x: fromX, direction: 1, petted: false,
-    enteredAt: null, entryFromX: fromX };
+  platform.dog = { kind: 'zab', comboReward: true, x: returning ? platform.safeX : fromX,
+    direction: 1, petted: false, enteredAt: null, entryFromX: fromX,
+    ...(returning ? { returning: true, entryProgress: 0,
+      entryLift: Math.max(40, game.camera + HEIGHT + 40 - platform.y) } : {}) };
+}
+
+function returnMissedComboCreatures(game) {
+  const missed = game.platforms.filter((platform) => platform.dog?.comboReward
+    && !platform.dog.petted && platform.y + PHYSICS.comboCreatureTopInset < game.camera);
+  for (const platform of missed) {
+    platform.dog = null;
+    spawnComboCreature(game, true);
+  }
 }
 
 function markFruitSpawn(game, platform, item) {
@@ -222,15 +241,23 @@ function moveDogs(game) {
       // Keep the complete entry animation until the encounter reaches the top.
       if (platform.y > game.camera + HEIGHT - PHYSICS.comboCreatureTopInset) continue;
       platform.dog.enteredAt = game.time;
+      if (platform.dog.returning) {
+        platform.dog.entryHeight = game.camera + HEIGHT + 40 - platform.y;
+      }
     }
     const margin = 16;
     const walk = reflectedPosition(game.time * 18, platform.width - margin * 2);
     const targetX = platform.x + margin + walk.position;
+    const duration = platform.dog.returning ? PHYSICS.comboCreatureReturnDuration : PHYSICS.comboCreatureEntryDuration;
     const entry = platform.dog.enteredAt === undefined ? 1
-      : clamp((game.time - platform.dog.enteredAt) / PHYSICS.comboCreatureEntryDuration, 0, 1);
+      : clamp((game.time - platform.dog.enteredAt) / duration, 0, 1);
     const ease = 1 - (1 - entry) ** 3;
-    platform.dog.x = entry === 1 ? targetX
+    platform.dog.x = entry === 1 || platform.dog.returning ? targetX
       : platform.dog.entryFromX + (targetX - platform.dog.entryFromX) * ease;
+    if (platform.dog.returning) {
+      platform.dog.entryProgress = entry;
+      platform.dog.entryLift = platform.dog.entryHeight * (1 - ease);
+    }
     platform.dog.direction = walk.direction;
   }
 }
@@ -835,6 +862,7 @@ export function stepGame(game, dt, axis = 0) {
     return;
   }
 
+  returnMissedComboCreatures(game);
   game.platforms = game.platforms.filter((platform) => platform.y >= game.camera - 80);
   generatePlatforms(game);
   generateGulls(game);

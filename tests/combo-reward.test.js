@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, startGame, stepGame, HEIGHT, PHYSICS } from '../src/game.js';
+import { createGame, startGame, stepGame, tapDog, HEIGHT, PHYSICS } from '../src/game.js';
 
 const DT = 1 / 120;
 function landing(game, platform) {
@@ -141,4 +141,82 @@ test('chain fruit records spawn time only when its art overlaps the viewport at 
     assert.ok(target.chainSatsuma);
     assert.equal(target.chainSatsuma.spawnedAt, camera === 0 ? game.time : undefined);
   }
+});
+
+function missReward(game, platform) {
+  game.camera = platform.y + PHYSICS.comboCreatureTopInset + 1;
+  Object.assign(game.player, { y: game.camera + 200, state: 'trapped', vy: 0 });
+  stepGame(game, DT);
+  return game.platforms.find((p) => p.dog?.comboReward && !p.dog.petted);
+}
+
+test('a missed combo Zab returns once on the nearest free upper ledge without changing the route', () => {
+  for (let seed = 0; seed < 40; seed++) {
+    const game = setup(seed);
+    game.satsumaStreak = 10;
+    landing(game, game.platforms[0]);
+    const source = game.platforms.find((p) => p.dog?.comboReward);
+    const before = structuredClone(game.platforms);
+    const reward = missReward(game, source);
+    assert.equal(source.dog, null);
+    assert.ok(reward.dog.returning);
+    assert.equal(game.platforms.filter((p) => p.dog?.comboReward).length, 1);
+    const freeVisible = before.filter((p) => !p.dog && (!p.item || p.item.used)
+      && (!p.chainSatsuma || p.chainSatsuma.used)
+      && p.y >= game.camera + HEIGHT * .65 && p.y <= game.camera + HEIGHT - PHYSICS.comboCreatureTopInset);
+    if (freeVisible.length) assert.equal(reward.id, freeVisible.at(-1).id);
+    for (const p of game.platforms) {
+      const old = before.find((entry) => entry.id === p.id);
+      if (!old) continue;
+      assert.deepEqual([p.x, p.y, p.width, p.item, p.chainSatsuma], [old.x, old.y, old.width, old.item, old.chainSatsuma]);
+      if (old.dog && p.id !== source.id) assert.deepEqual(p.dog, old.dog);
+    }
+  }
+});
+
+test('the returning Zab drops from above the screen, settles in 0.75 seconds and freezes on pause', () => {
+  const game = setup();
+  game.satsumaStreak = 10;
+  landing(game, game.platforms[0]);
+  const reward = missReward(game, game.platforms.find((p) => p.dog?.comboReward));
+  game.camera = Math.max(game.camera, reward.y - HEIGHT + PHYSICS.comboCreatureTopInset);
+  game.player.y = game.camera + 200;
+  stepGame(game, DT);
+  const dog = reward.dog;
+  assert.ok(HEIGHT - (reward.y + dog.entryLift - game.camera) < 0);
+  const lift = dog.entryLift;
+  stepGame(game, .15);
+  assert.ok(dog.entryLift > 0 && dog.entryLift < lift);
+  assert.ok(dog.entryProgress > 0 && dog.entryProgress < 1);
+  game.phase = 'paused';
+  const paused = structuredClone(game);
+  stepGame(game, .5);
+  assert.deepEqual(game, paused);
+  game.phase = 'playing';
+  for (let frame = 0; frame < 100; frame++) stepGame(game, DT);
+  assert.equal(dog.entryLift, 0);
+  assert.equal(dog.entryProgress, 1);
+  assert.ok(dog.x >= reward.x + 16 && dog.x <= reward.x + reward.width - 16);
+});
+
+test('missed rewards can return repeatedly, but completed petting and ordinary Zabs never respawn', () => {
+  const game = setup();
+  game.satsumaStreak = 10;
+  landing(game, game.platforms[0]);
+  let reward = game.platforms.find((p) => p.dog?.comboReward);
+  for (let miss = 0; miss < 3; miss++) {
+    reward = missReward(game, reward);
+    assert.ok(reward.dog.returning);
+    assert.equal(game.platforms.filter((p) => p.dog?.comboReward).length, 1);
+  }
+  Object.assign(game.player, { state: 'petting', platformId: reward.id, y: reward.y });
+  for (let tap = 0; tap < PHYSICS.dogTaps; tap++) assert.equal(tapDog(game), true);
+  assert.equal(reward.dog.petted, true);
+  assert.equal(missReward(game, reward), undefined);
+
+  const ordinary = setup();
+  const source = ordinary.platforms[0];
+  source.dog = { kind: 'zab', x: source.safeX, direction: 1, petted: false };
+  assert.equal(missReward(ordinary, source), undefined);
+  assert.equal(ordinary.platforms.filter((p) => p.dog?.returning).length, 0);
 });
