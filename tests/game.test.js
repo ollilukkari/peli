@@ -1055,3 +1055,17 @@ test('a dog walks both ways and never steps off its platform', () => {
   assert.equal(directions.size, 2);
   assert.ok(positions.size > 30);
 });
+
+
+test('eating records a fresh timestamp only on a real fruit landing', () => {
+  const game = landingGame('satsuma');
+  assert.equal(game.lastMealAt, null);
+  stepGame(game, DT);
+  assert.equal(game.lastMealAt, game.time);
+  const eatenAt = game.lastMealAt;
+  stepGame(game, DT);
+  assert.equal(game.lastMealAt, eatenAt);
+  const trap = landingGame('trap');
+  stepGame(trap, DT);
+  assert.equal(trap.lastMealAt, null);
+});

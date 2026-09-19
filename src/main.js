@@ -109,7 +109,7 @@ function processEvents() {
       clearInput();
       announce('Jalka jäi ansaan. Napauta kahdeksan kertaa tai paina nuolinäppäimiä tai välilyöntiä kahdeksasti.');
     }
-    if (event.type === 'satsuma') announce(`${game.bubble} Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} satsuman kombo!` : ''}`);
+    if (event.type === 'satsuma') announce(`${game.bubble} Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} välipalan kombo!` : ''}`);
     if (event.type === 'release') announce('Vapaa!');
     if (event.type === 'slip') announce('Hyi kakkaa');
     if (event.type === 'over') finishRound();

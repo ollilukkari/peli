@@ -1,5 +1,7 @@
 # Mahdolliset lisäykset
 
-Nämä ovat harkittavia ideoita, eivät toteutukseen hyväksyttyjä muutoksia.
+Ei avoimia ehdotuksia tällä hetkellä.
 
-- **Vuodenaikojen marjat:** kesällä satsuman tilalle yksi punainen mansikka vaaleilla siemenillä; syksyllä kolmen puolukan terttu pienillä vihreillä lehdillä. Talvella säilyisi satsuma. Ulkoasuehdotus on katsottu, mutta toteutus jätetään myöhemmäksi. Nykyisessä pelissä käytetään satsumia kaikissa maailmoissa.
+## Kehitykseen otetut ideat
+
+- **Vuodenaikojen marjat:** kesällä mansikka, syksyllä kolmen puolukan terttu, talvella satsuma. Toteutettu kehitysversioon omansävyisillä hehkuilla ja kimalluksilla. Kaikki käyttävät samaa hyppyvaikutusta ja keräilyketjua.

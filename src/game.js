@@ -255,6 +255,7 @@ export function createGame(seed = Date.now()) {
     chainTargetId: null,
     satsumaStreak: 0,
     lastLanding: null,
+    lastMealAt: null,
     gulls: [],
     gullGenerationIndex: 0,
     nextGullY: 700,
@@ -354,6 +355,7 @@ function land(game, platform, dt) {
 
   item.used = true;
   if (item.type === 'satsuma') {
+    game.lastMealAt = game.time;
     game.bubble = SAYINGS[Math.floor(random(game) * SAYINGS.length)];
     game.bubbleUntil = game.time + 1.8;
     bounce(game, PHYSICS.boostMultiplier, 'satsuma');

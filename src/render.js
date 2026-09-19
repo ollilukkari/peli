@@ -578,32 +578,86 @@ function drawPlatform(ctx, platform, screenY, palette, theme, gameSeed) {
   }
 }
 
-function drawSatsuma(ctx, x, y, time, theme, reducedMotion) {
+function drawStrawberry(ctx, x, y) {
+  // Rounded shoulders, a tapered berry and a compact five-leaf calyx.
+  ctx.save();
+  ctx.translate(x, y);
+  shape(ctx, '#793743', [[-15,-24],[-12,-28],[-7,-30],[-2,-29],[2,-29],[7,-30],
+    [12,-28],[15,-24],[16,-18],[14,-12],[10,-7],[5,-2],[1,1],[-2,0],[-7,-4],[-12,-10],[-15,-16]]);
+  shape(ctx, '#d84452', [[-13,-23],[-10,-26],[-6,-28],[-1,-27],[3,-27],[7,-28],
+    [11,-26],[13,-23],[14,-18],[12,-12],[8,-7],[3,-2],[0,-1],[-6,-6],[-11,-12],[-13,-17]]);
+  shape(ctx, '#ed6870', [[-11,-23],[-8,-26],[-4,-26],[-1,-24],[0,-19],[-3,-13],
+    [-7,-12],[-10,-16],[-12,-19]]);
+  shape(ctx, '#b83048', [[11,-22],[13,-19],[11,-12],[7,-7],[2,-3],[0,-3],
+    [5,-9],[8,-15]]);
+  box(ctx, '#ffaaa0', -8, -24, 4, 2);
+  box(ctx, '#f68b88', -10, -22, 2, 3);
+  for (const [sx,sy] of [[-8,-21],[0,-22],[8,-21],[-10,-16],[-3,-16],[5,-16],
+    [-6,-10],[2,-10],[0,-5]]) {
+    box(ctx, '#b53b48', sx + 1, sy, 1, 3);
+    box(ctx, '#ffe1a0', sx, sy, 1, 2);
+  }
+  box(ctx, '#355e3e', 0, -36, 2, 7);
+  box(ctx, '#658944', 1, -35, 2, 3);
+  shape(ctx, '#355e3e', [[0,-31],[-7,-33],[-5,-29],[-13,-29],[-8,-25],[-3,-26],
+    [0,-22],[3,-27],[10,-25],[8,-29],[13,-31],[5,-32],[3,-34]]);
+  shape(ctx, '#5b8b4d', [[0,-30],[-6,-31],[-3,-28],[-9,-28],[-6,-26],[-1,-28],
+    [0,-25],[2,-29],[7,-27],[5,-30],[9,-30],[3,-31]]);
+  box(ctx, '#88ad63', -3, -30, 5, 1);
+  ctx.restore();
+}
+
+function drawLingonberries(ctx, x, y) {
+  box(ctx, '#566f41', x - 1, y - 33, 2, 17);
+  pixelOval(ctx, '#3e6949', x - 14, y - 34, 13, 7, 2);
+  box(ctx, '#7c9b5b', x - 11, y - 33, 7, 2);
+  pixelOval(ctx, '#3e6949', x + 1, y - 36, 13, 8, 2);
+  box(ctx, '#7c9b5b', x + 4, y - 35, 7, 2);
+  for (const [dx,dy] of [[-7,-22],[6,-22],[-1,-10]]) {
+    pixelOval(ctx, '#70333e', x + dx - 8, y + dy - 8, 16, 16, 3);
+    pixelOval(ctx, '#b9374c', x + dx - 6, y + dy - 6, 12, 12, 2);
+    pixelOval(ctx, '#df6372', x + dx - 5, y + dy - 5, 7, 6, 1);
+    box(ctx, '#ffd3bc', x + dx - 4, y + dy - 4, 3, 2);
+    box(ctx, '#722a3d', x + dx + 1, y + dy + 3, 3, 2);
+  }
+}
+
+export function drawSeasonFruit(ctx, x, y, time, theme, reducedMotion) {
+  const strawberry = theme === 'meadow';
+  const lingonberry = theme === 'autumn';
+  const outerGlow = strawberry ? '#ff8f91' : lingonberry ? '#d34c73' : '#ffc873';
+  const innerGlow = strawberry ? '#ff797c' : lingonberry ? '#c94465'
+    : isDarkTheme(theme) ? '#ffb45e' : '#ffed9a';
+  const sparkle = strawberry ? '#ffd0c0' : lingonberry ? '#f8bdd7' : '#fff4bc';
   const pulse = reducedMotion ? 0.5 : (1 + Math.sin(time * Math.PI / 2.6 + x * 0.07)) / 2;
   const float = reducedMotion ? 0 : Math.sin(time * Math.PI / 2.6 + x * 0.07) * 0.8;
   y += float;
   ctx.save();
-  ctx.globalAlpha = 0.06 + pulse * 0.06;
-  pixelOval(ctx, '#ffc873', x - 27, y - 41, 54, 51, 8);
-  ctx.globalAlpha = 0.12 + pulse * 0.12;
-  pixelOval(ctx, isDarkTheme(theme) ? '#ffb45e' : '#ffed9a', x - 23, y - 37, 46, 43, 6);
+  ctx.globalAlpha = pulse * 0.036;
+  pixelOval(ctx, outerGlow, x - 27, y - 41, 54, 51, 8);
+  ctx.globalAlpha = pulse * 0.072;
+  pixelOval(ctx, innerGlow, x - 23, y - 37, 46, 43, 6);
   ctx.restore();
-  pixelOval(ctx, '#9b6243', x - 15, y - 27, 30, 27, 3);
-  pixelOval(ctx, '#ee8b42', x - 15, y - 29, 30, 25, 3);
-  pixelOval(ctx, '#ffb44e', x - 12, y - 29, 23, 20, 3);
-  box(ctx, '#ffdc83', x - 7, y - 25, 7, 3);
-  box(ctx, '#ffcb6d', x - 10, y - 22, 3, 5);
-  box(ctx, '#d77539', x + 8, y - 16, 3, 6);
-  box(ctx, '#87624a', x - 1, y - 34, 3, 7);
-  box(ctx, '#4b8051', x + 2, y - 35, 9, 5);
-  box(ctx, '#73a866', x + 3, y - 35, 8, 2);
+  if (strawberry) drawStrawberry(ctx, x, y);
+  else if (lingonberry) drawLingonberries(ctx, x, y);
+  else {
+    pixelOval(ctx, '#9b6243', x - 15, y - 27, 30, 27, 3);
+    pixelOval(ctx, '#ee8b42', x - 15, y - 29, 30, 25, 3);
+    pixelOval(ctx, '#ffb44e', x - 12, y - 29, 23, 20, 3);
+    box(ctx, '#ffdc83', x - 7, y - 25, 7, 3);
+    box(ctx, '#ffcb6d', x - 10, y - 22, 3, 5);
+    box(ctx, '#d77539', x + 8, y - 16, 3, 6);
+    box(ctx, '#87624a', x - 1, y - 34, 3, 7);
+    box(ctx, '#4b8051', x + 2, y - 35, 9, 5);
+    box(ctx, '#73a866', x + 3, y - 35, 8, 2);
+  }
   if (!reducedMotion) {
     ctx.save();
     for (const [offset, dx, dy, size] of [[0, 23, -24, 2], [2.4, -21, -38, 1]]) {
       const phase = (time + x * 0.017 + offset) % 5.8;
       if (phase >= 1.3) continue;
       ctx.globalAlpha = Math.sin(phase / 1.3 * Math.PI) ** 2 * 0.85;
-      star(ctx, x + dx, y + dy, '#fff4bc', size);
+      star(ctx, x + dx, y + dy, sparkle, size);
     }
     ctx.restore();
   }
@@ -816,9 +870,30 @@ function drawGullHit(ctx, hit, time, screenY, theme, reducedMotion) {
   ctx.restore();
 }
 
+export function getEatingExpression(game, theme) {
+  let nearest = Infinity;
+  if (game.phase === 'playing' && game.player.state === 'air') {
+    for (const platform of game.platforms) {
+      for (const item of [platform.item, platform.chainSatsuma]) {
+        if (!item || item.used || item.type !== 'satsuma') continue;
+        nearest = Math.min(nearest, Math.hypot(item.x - game.player.x, platform.y - game.player.y));
+      }
+    }
+  }
+  const proximity = Math.max(0, Math.min(1, (68 - nearest) / 44));
+  const age = game.lastMealAt == null ? Infinity : game.time - game.lastMealAt;
+  const stainAlpha = age >= 0 && age < 1 ? Math.min(1, (1 - age) / 0.25) : 0;
+  return {
+    mouthOpen: proximity * proximity * (3 - 2 * proximity),
+    stainAlpha,
+    stainColor: theme === 'meadow' ? '#df4b5b' : theme === 'autumn' ? '#9e294a' : '#ed963b',
+  };
+}
+
 /** Draw the round Ponppu character, anchored at the unchanged physics feet. */
 export function drawBunny(ctx, x, feetY, {
   theme = 'meadow', pose = 'idle', scale = 1, facing = 1, time = 0,
+  mouthOpen = 0, stainAlpha = 0, stainColor = '#ed963b',
   impact = 0, vx = 0, vy = 0, reducedMotion = false, skin = theme === 'winter' ? 'winter' : theme === 'kvlt' ? 'corpse-paint' : 'classic',
 } = {}) {
   ctx.save();
@@ -943,12 +1018,27 @@ export function drawBunny(ctx, x, feetY, {
   box(ctx, pink, -1 + eyeX, -19, 3, 2);
   // Two tiny upturned cheeks make a gentle bunny smile beneath the nose.
   const smileInk = '#59404a';
-  box(ctx, smileInk, eyeX, -17, 1, 2);
-  box(ctx, smileInk, -4 + eyeX, -16, 1, 2);
-  box(ctx, smileInk, -3 + eyeX, -14, 3, 1);
-  box(ctx, smileInk, eyeX, -15, 1, 1);
-  box(ctx, smileInk, 1 + eyeX, -14, 3, 1);
-  box(ctx, smileInk, 4 + eyeX, -16, 1, 2);
+  if (mouthOpen > 0.12) {
+    const opening = Math.max(2, Math.round(4 * mouthOpen));
+    pixelOval(ctx, smileInk, eyeX - 3, -17, 7, opening, 1);
+    box(ctx, '#ef9fa8', eyeX - 1, -17 + opening - 1, 3, 1);
+    box(ctx, white, eyeX - 1, -17, 2, 1);
+  } else {
+    box(ctx, smileInk, eyeX, -17, 1, 2);
+    box(ctx, smileInk, -4 + eyeX, -16, 1, 2);
+    box(ctx, smileInk, -3 + eyeX, -14, 3, 1);
+    box(ctx, smileInk, eyeX, -15, 1, 1);
+    box(ctx, smileInk, 1 + eyeX, -14, 3, 1);
+    box(ctx, smileInk, 4 + eyeX, -16, 1, 2);
+  }
+  if (stainAlpha > 0) {
+    ctx.save();
+    ctx.globalAlpha = stainAlpha;
+    const stainX = eyeX + (facing < 0 ? -8 : 5);
+    pixelOval(ctx, stainColor, stainX, -16, 4, 3, 1);
+    box(ctx, stainColor, stainX + (facing < 0 ? -1 : 4), -14, 1, 1);
+    ctx.restore();
+  }
 
   if (skin === 'winter') {
     pixelOval(ctx, '#17171d', -17, -13, 34, 7, 2);
@@ -1251,11 +1341,11 @@ export function drawGame(ctx, game, options = {}) {
     // A satsuma and its sparkle extend above a platform already below the screen.
     if (y < -10 || y > HEIGHT + 48) continue;
     const item = platform.item;
-    if (item?.type === 'satsuma' && !item.used) drawSatsuma(ctx, item.x, y, visualTime, theme, reducedMotion);
+    if (item?.type === 'satsuma' && !item.used) drawSeasonFruit(ctx, item.x, y, visualTime, theme, reducedMotion);
     if (item?.type === 'trap') drawTrap(ctx, item.x, y, theme, item.used, visualTime, reducedMotion);
     if (item?.type === 'poop') drawPoop(ctx, item.x, y, theme, item.used, visualTime, reducedMotion);
     const chain = platform.chainSatsuma;
-    if (chain && !chain.used) drawSatsuma(ctx, chain.x, y, visualTime, theme, reducedMotion);
+    if (chain && !chain.used) drawSeasonFruit(ctx, chain.x, y, visualTime, theme, reducedMotion);
   }
 
   for (const platform of game.platforms) {
@@ -1281,6 +1371,7 @@ export function drawGame(ctx, game, options = {}) {
     for (let i = 0; i < 3; i += 1) box(ctx, palette.cloud, player.x + direction * (21 + i * 7), bunnyY - 6 - i * 5, 5, 2);
   }
   drawBunny(ctx, player.x, bunnyY, {
+    ...getEatingExpression(game, theme),
     theme,
     pose: game.phase === 'ready' || player.state === 'petting' ? 'idle' : player.state === 'trapped' || player.state === 'sliding' ? player.state : player.vy > 0 ? 'jump' : 'fall',
     facing: player.vx < -8 ? -1 : 1,

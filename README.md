@@ -18,11 +18,11 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 
 - **Puhelin:** kosketa pelialueen alempaa puoliskoa ja vedä sormea sivulle. Joystick ilmestyy kosketuskohtaan. Pupu pomppii automaattisesti.
 - **Tietokone:** liiku vasemmalla ja oikealla nuolinäppäimellä. Pelialue pysyy pystysuuntaisena myös suurella näytöllä.
-- **Satsuma:** hyppää hedelmän päälle saadaksesi kolminkertaisen hyppykorkeuden.
-- **Satsumaketju:** jokainen tehohyppy varmistaa seuraavan satsuman hyppyulottuville olemassa olevalle tasolle. Kolme peräkkäistä satsumaa käynnistää kombolaskurin ja jokaisesta seuraavasta satsumasta ponnahtavan tähtitehosteen. Laskeutuminen ilman satsumaa katkaisee kombon; pisteet mittaavat edelleen matkaa.
+- **Välipalat:** kesällä mansikka, syksyllä puolukkaterttu ja talvella satsuma. Jokainen antaa kolminkertaisen hyppykorkeuden. Mansikka hehkuu korallinpunaisena, puolukat rubiininpunaisina ja satsuma lämpimän oranssina; kimallustähdet ilmestyvät ja katoavat rauhallisesti.
+- **Välipalaketju:** jokainen tehohyppy varmistaa seuraavan välipalan hyppyulottuville olemassa olevalle tasolle. Kolme peräkkäistä välipalaa käynnistää kombolaskurin ja jokaisesta seuraavasta välipalasta ponnahtavan tähtitehosteen. Laskeutuminen ilman välipalaa katkaisee kombon; pisteet mittaavat edelleen matkaa.
 - **Ansa:** kahdeksan uutta napautusta vapauttaa pupun. Tietokoneella paina mitä tahansa nuolinäppäintä tai välilyöntiä kahdeksan erillistä kertaa. Näppäimen pitäminen pohjassa ei ole useita tökkäisyjä.
 - **Kakka:** liukastut tulosuunnassa; suurempi sivuttaisnopeus aiheuttaa pidemmän ja nopeamman liu'un. Esineet aktivoituvat laskeuduttaessa niiden päälle.
-- **Linnut:** kesällä lokkeja, syksyllä sorsia ja talvella harakoita. Sik-sak lentävään lintuun osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise satsumaketjua.
+- **Linnut:** kesällä lokkeja, syksyllä sorsia ja talvella harakoita. Sik-sak lentävään lintuun osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise välipalaketjua.
 - **Koira:** tepastelee tasolla 1 000–2 000 metrin välein. Viereen laskeutuminen pysäyttää pelin siksi aikaa, että silität koiraa 10 pyyhkäisyllä. Koira näkyy suurennettuna himmennetyn pelin edessä, ja jokainen pyyhkäisy synnyttää sydämiä. Hiirellä pidä painike pohjassa ja vedä edestakaisin.
 - **Tauko:** paina taukopainiketta tai Escapea. Taustalle siirtyminen keskeyttää kierroksen.
 
