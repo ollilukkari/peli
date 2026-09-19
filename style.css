@@ -109,14 +109,11 @@ body{--update-space:0px;--page-space:32px;--frame-border:8px;padding-top:calc(en
 body[data-update-ready="true"]{--update-space:52px}
 .layout{padding-top:16px;padding-bottom:16px}
 .game-column{width:100%;max-width:min(396px,calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--update-space) - var(--page-space) - var(--frame-border))*.5625 + var(--frame-border)));margin:0 auto;justify-self:center}
-.menu-tools{display:flex;justify-content:center;align-items:center;gap:8px}
-.menu-tools .quiet-button{min-height:36px;padding:7px 10px;font-size:11px;background:#fffcf49c;color:#41583d;border-color:currentColor}
-.game-frame[data-theme="autumn"] .menu-tools .quiet-button{background:#fae6c5c9;color:#795433}
-.game-frame:is([data-theme="kvlt"],[data-theme="winter"]) .menu-tools .quiet-button{background:#182a40cf;color:#d5e8f3}
+.menu-tools{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px}
 .update-notice{position:fixed;inset:0 0 auto;z-index:10;min-height:calc(52px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:center;gap:12px;margin:0;padding:calc(8px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left));border:0;border-bottom:2px solid #b57d39;background:#fff0c5;color:#523b25;font-size:12px;font-weight:600;line-height:18px;box-shadow:0 3px 8px #24332320}
 .update-notice button{flex-shrink:0;min-height:34px;padding:6px 12px;border:1px solid currentColor;border-radius:5px;background:#534331;color:#fff9e9;font-size:12px;font-weight:700;line-height:18px}
 @media(max-width:800px){body{--page-space:24px;--frame-border:6px}.layout{padding:12px 10px}}
-@media(max-height:600px) and (orientation:landscape){body{--page-space:16px}.layout{display:block;padding:8px 12px}.layout>.intro,.layout>.field-guide{display:none}.menu-tools{gap:4px}.menu-tools .quiet-button{min-height:24px;padding:4px 6px;font-size:9px;line-height:1.2}}
+@media(max-height:600px) and (orientation:landscape){body{--page-space:16px}.layout{display:block;padding:8px 12px}.layout>.intro,.layout>.field-guide{display:none}.menu-tools{gap:4px}}
 
 /* Narrow landscape frames still need complete, reachable round controls. */
 .dialog-overlay{grid-template-columns:minmax(0,1fr)}
@@ -140,4 +137,13 @@ body[data-update-ready="true"]{--update-space:52px}
 @keyframes gesture-ripple{0%,25%{opacity:0;transform:scale(.6)}35%{opacity:.65;transform:scale(.8)}75%,100%{opacity:0;transform:scale(1.45)}}
 @media(prefers-reduced-motion:reduce){.gesture-hint *{animation:none!important}.gesture-ripple{opacity:.45}}
 
-.menu #start{position:absolute;left:8%;bottom:10px;width:84%;pointer-events:auto}
+/* Device-specific help is shared by the side guides and the help dialog. */
+body[data-input-mode="keyboard"] [data-controls="touch"],body[data-input-mode="touch"] [data-controls="keyboard"]{display:none!important}
+.install-button{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;padding:11px 16px;border:2px solid #263e2f;border-radius:7px;background:#426b4b;color:#fffbea;box-shadow:0 4px #263e2f;font-size:16px;font-weight:800;line-height:1.25}
+.install-button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.install-button:hover{filter:brightness(1.12)}
+.install-button:active{box-shadow:0 2px #263e2f}
+.game-frame[data-theme="autumn"] .install-button{background:#805127;border-color:#52371f;box-shadow:0 4px #52371f}
+.game-frame:is([data-theme="winter"],[data-theme="kvlt"]) .install-button{background:#d5e9f4;color:#203c54;border-color:#779aae;box-shadow:0 4px #779aae}
+@container(max-width:340px){.menu-card:has(#install:not([hidden])) .theme-select{margin-bottom:10px}.menu-card:has(#install:not([hidden])) .record-line{margin-top:10px}}
+@media(max-height:600px) and (orientation:landscape){.menu:has(#install:not([hidden])){padding-top:max(20cqw,38px)}.menu-card:has(#install:not([hidden])) .theme-select{margin-bottom:6px}.menu-card:has(#install:not([hidden])) .record-line{margin-top:6px}.install-button{min-height:34px;padding:6px 8px;font-size:12px;gap:6px}.install-button svg{width:18px;height:18px}}

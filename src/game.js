@@ -37,7 +37,7 @@ export const PHYSICS = Object.freeze({
   gullCooldown: 0.65,
 });
 
-const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!', 'Njömpsis!'];
+const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!'];
 const NORMAL_HEIGHT = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
 const PLATFORM_WIDTH_SCALE = 0.9;
 const PLATFORM_NARROWING_METERS = 250;
@@ -450,7 +450,7 @@ function land(game, platform, dt) {
     game.trapTaps = 0;
     emit(game, 'trap');
   } else if (item.type === 'poop') {
-    game.bubble = 'Hyi kakkaa';
+    game.bubble = 'Hyi kakkaa!';
     game.bubbleUntil = game.time + 1.8;
     player.state = 'sliding';
     player.platformId = platform.id;

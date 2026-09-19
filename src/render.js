@@ -37,6 +37,48 @@ const palettes = {
 
 const isDarkTheme = (theme) => theme === 'kvlt' || theme === 'winter';
 
+// Per-output LRU: at most 8 MiB of RGBA artwork, regardless of round length.
+// Detached canvases retain the same 1:1 pixel grid as the visible playfield.
+const ARTWORK_PIXEL_LIMIT = 2 * 1024 * 1024;
+const artworkCaches = new WeakMap();
+function cachedArtwork(ctx, key, width, height, paint) {
+  let cache = artworkCaches.get(ctx);
+  if (!cache) {
+    cache = { entries: new Map(), pixels: 0 };
+    artworkCaches.set(ctx, cache);
+  }
+  let entry = cache.entries.get(key);
+  if (entry) {
+    cache.entries.delete(key);
+    cache.entries.set(key, entry);
+    return entry.canvas;
+  }
+  const pixels = width * height;
+  if (pixels > ARTWORK_PIXEL_LIMIT) throw new RangeError('Artwork exceeds the render cache budget.');
+  while (cache.pixels + pixels > ARTWORK_PIXEL_LIMIT) {
+    const oldest = cache.entries.keys().next().value;
+    cache.pixels -= cache.entries.get(oldest).pixels;
+    cache.entries.delete(oldest);
+  }
+  const canvas = ctx.canvas.ownerDocument.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const sprite = canvas.getContext('2d');
+  sprite.imageSmoothingEnabled = false;
+  paint(sprite);
+  entry = { canvas, pixels };
+  cache.entries.set(key, entry);
+  cache.pixels += pixels;
+  return canvas;
+}
+
+const ridgeProfiles = [
+  [[-20, 460], [66, 310], [130, 394], [200, 285], [273, 403], [380, 336]],
+  [[-20, 473], [39, 421], [104, 438], [155, 487], [224, 405], [295, 445], [380, 420]],
+  [[-20, 559], [71, 489], [127, 506], [190, 569], [275, 505], [380, 491]],
+];
+const ridgeSteps = new WeakMap();
+
 // Visual choices stay fixed as the camera moves and never consume gameplay randomness.
 function platformHash(seed, id, channel = 0) {
   let value = seed ^ Math.imul(id + 1, 0x9e3779b9) ^ Math.imul(channel + 1, 0x85ebca6b);
@@ -85,21 +127,36 @@ function cloud(ctx, x, y, size, palette) {
 }
 
 function ridge(ctx, color, points, offset) {
-  // Horizontal stair steps keep the silhouette crisp at every display size.
-  const stepped = [];
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const [x1, y1] = points[i];
-    const [x2, y2] = points[i + 1];
-    const steps = Math.ceil((x2 - x1) / 12);
-    for (let step = 0; step < steps; step += 1) {
-      const x = x1 + ((x2 - x1) * step) / steps;
-      const nextX = x1 + ((x2 - x1) * (step + 1)) / steps;
-      const y = y1 + ((y2 - y1) * step) / steps + offset;
-      stepped.push([x, y], [nextX, y]);
+  let steps = ridgeSteps.get(points);
+  if (!steps) {
+    steps = [];
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const [x1, y1] = points[i];
+      const [x2, y2] = points[i + 1];
+      const count = Math.ceil((x2 - x1) / 12);
+      for (let step = 0; step < count; step += 1) {
+        steps.push([Math.round(x1 + ((x2 - x1) * step) / count),
+          Math.round(x1 + ((x2 - x1) * (step + 1)) / count),
+          y1 + ((y2 - y1) * step) / count]);
+      }
     }
+    ridgeSteps.set(points, steps);
   }
-  stepped.push([WIDTH + 20, HEIGHT], [-20, HEIGHT]);
-  shape(ctx, color, stepped);
+  // Reuse geometry, but rasterize the moving outline directly. Each stair has
+  // its own fractional height; caching all rounded silhouettes churns memory.
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < steps.length; i += 1) {
+    const [x, nextX, height] = steps[i];
+    const y = Math.round(height + offset);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    ctx.lineTo(nextX, y);
+  }
+  ctx.lineTo(WIDTH + 20, HEIGHT);
+  ctx.lineTo(-20, HEIGHT);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function castle(ctx, x, y, size) {
@@ -143,7 +200,7 @@ function autumnLeaf(ctx, x, y, color, turn = 1) {
   box(ctx, '#856047', x + 1, y + 2, 1, 2);
 }
 
-function autumnTree(ctx, x, bottom, height, colors) {
+function paintAutumnTree(ctx, x, bottom, height, colors) {
   ctx.save();
   ctx.translate(Math.round(x), Math.round(bottom));
   ctx.scale(height / 100, height / 100);
@@ -163,12 +220,27 @@ function autumnTree(ctx, x, bottom, height, colors) {
   ctx.restore();
 }
 
+function autumnTree(ctx, x, bottom, height, colors) {
+  const scale = height / 100;
+  const anchorX = Math.ceil(41 * scale) + 1;
+  const anchorY = Math.ceil(100 * scale) + 1;
+  const image = cachedArtwork(ctx, `autumn-tree:${height}:${Object.values(colors).join(':')}`,
+    anchorX * 2, anchorY + 1, (sprite) => {
+      sprite.translate(anchorX, anchorY);
+      paintAutumnTree(sprite, 0, 0, height, colors);
+    });
+  ctx.drawImage(image, Math.round(x) - anchorX, Math.round(bottom) - anchorY);
+}
+
 function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
-  const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  gradient.addColorStop(0, palette.sky);
-  gradient.addColorStop(1, palette.skyBottom);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  const sky = cachedArtwork(ctx, `sky:${theme}`, WIDTH, HEIGHT, (sprite) => {
+    const gradient = sprite.createLinearGradient(0, 0, 0, HEIGHT);
+    gradient.addColorStop(0, palette.sky);
+    gradient.addColorStop(1, palette.skyBottom);
+    sprite.fillStyle = gradient;
+    sprite.fillRect(0, 0, WIDTH, HEIGHT);
+  });
+  ctx.drawImage(sky, 0, 0);
   const drift = reducedMotion ? 0 : time;
   const camera = game.camera || 0;
 
@@ -182,26 +254,34 @@ function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
       else box(ctx, winter ? '#d7eafa' : '#ede5d5', x, y, 2, 2);
     }
     ctx.globalAlpha = 1;
-    if (winter) {
-      ctx.globalAlpha = 0.07;
-      pixelOval(ctx, '#c4e6ff', 249, 73, 91, 91, 8);
-      ctx.globalAlpha = 1;
-    }
-    pixelOval(ctx, winter ? '#85a7be' : '#aaa1b8', 268, 94, 52, 52, 5);
-    pixelOval(ctx, winter ? '#f0faff' : '#eee4d9', 270, 92, 46, 46, 4);
-    box(ctx, winter ? '#c4dce9' : '#c8bed0', 282, 103, 8, 7);
-    box(ctx, winter ? '#d9e9f1' : '#d6ccda', 298, 115, 8, 9);
-    box(ctx, winter ? '#d9e9f1' : '#d6ccda', 277, 122, 5, 5);
+    const moon = cachedArtwork(ctx, `moon:${theme}`, 100, 100, (sprite) => {
+      sprite.translate(-245, -70);
+      if (winter) {
+        sprite.globalAlpha = 0.07;
+        pixelOval(sprite, '#c4e6ff', 249, 73, 91, 91, 8);
+        sprite.globalAlpha = 1;
+      }
+      pixelOval(sprite, winter ? '#85a7be' : '#aaa1b8', 268, 94, 52, 52, 5);
+      pixelOval(sprite, winter ? '#f0faff' : '#eee4d9', 270, 92, 46, 46, 4);
+      box(sprite, winter ? '#c4dce9' : '#c8bed0', 282, 103, 8, 7);
+      box(sprite, winter ? '#d9e9f1' : '#d6ccda', 298, 115, 8, 9);
+      box(sprite, winter ? '#d9e9f1' : '#d6ccda', 277, 122, 5, 5);
+    });
+    ctx.drawImage(moon, 245, 70);
     ctx.globalAlpha = winter ? 0.16 : 0.3;
     cloud(ctx, 232 + Math.sin(drift / 45) * 5, 129, 1, palette);
     cloud(ctx, -16, 201, 1.2, palette);
     ctx.globalAlpha = 1;
   } else {
-    ctx.globalAlpha = 0.24;
-    pixelOval(ctx, '#fffce8', 252, 74, 92, 92, 8);
-    ctx.globalAlpha = 1;
-    pixelOval(ctx, '#ffefad', 275, 96, 44, 44, 5);
-    box(ctx, '#fff4c1', 287, 100, 17, 4);
+    const sun = cachedArtwork(ctx, 'sun', 100, 100, (sprite) => {
+      sprite.translate(-248, -70);
+      sprite.globalAlpha = .24;
+      pixelOval(sprite, '#fffce8', 252, 74, 92, 92, 8);
+      sprite.globalAlpha = 1;
+      pixelOval(sprite, '#ffefad', 275, 96, 44, 44, 5);
+      box(sprite, '#fff4c1', 287, 100, 17, 4);
+    });
+    ctx.drawImage(sun, 248, 70);
     cloud(ctx, 21 + Math.sin(drift / 40) * 7, 142, 0.9, palette);
     cloud(ctx, 233 + Math.sin(drift / 45 + 2) * 6, 222, 0.76, palette);
     cloud(ctx, -29 + Math.sin(drift / 52) * 4, 296, 0.6, palette);
@@ -209,7 +289,7 @@ function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
 
   // Parallax moves gently, while the actual platforms retain exact world positions.
   const offset = Math.sin(camera / 1800) * 18;
-  ridge(ctx, palette.distant, [[-20, 460], [66, 310], [130, 394], [200, 285], [273, 403], [380, 336]], offset);
+  ridge(ctx, palette.distant, ridgeProfiles[0], offset);
   if (theme === 'winter') {
     shape(ctx, '#607c92', [[41, 352 + offset], [41, 336 + offset], [54, 336 + offset], [54, 310 + offset], [66, 310 + offset], [66, 326 + offset], [78, 326 + offset], [78, 341 + offset], [89, 341 + offset], [89, 358 + offset], [76, 358 + offset], [76, 348 + offset], [64, 348 + offset], [64, 356 + offset], [53, 356 + offset], [53, 347 + offset]]);
     shape(ctx, '#7b93a6', [[173, 329 + offset], [173, 313 + offset], [185, 313 + offset], [185, 285 + offset], [200, 285 + offset], [200, 304 + offset], [213, 304 + offset], [213, 324 + offset], [225, 324 + offset], [225, 340 + offset], [210, 340 + offset], [210, 333 + offset], [198, 333 + offset], [198, 320 + offset], [187, 320 + offset], [187, 335 + offset]]);
@@ -221,7 +301,7 @@ function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
       autumnTree(ctx, x, bottom + offset * 1.2, height, distantLeaves);
     }
   }
-  ridge(ctx, palette.hill, [[-20, 473], [39, 421], [104, 438], [155, 487], [224, 405], [295, 445], [380, 420]], offset * 1.4);
+  ridge(ctx, palette.hill, ridgeProfiles[1], offset * 1.4);
   if (theme === 'winter') {
     for (const [x, bottom, height] of [[17, 531, 112], [66, 520, 65], [101, 546, 92], [236, 540, 72], [288, 522, 121], [343, 532, 85]]) {
       winterPine(ctx, x, bottom + offset * 1.6, height, '#172c40', true);
@@ -234,24 +314,27 @@ function drawBackground(ctx, game, { theme, time, reducedMotion }, palette) {
     autumnTree(ctx, 280, 552 + offset * 1.6, 140, rustLeaves);
     autumnTree(ctx, 348, 534 + offset * 1.6, 94, goldLeaves);
   }
-  ridge(ctx, palette.nearHill, [[-20, 559], [71, 489], [127, 506], [190, 569], [275, 505], [380, 491]], offset * 1.8);
+  ridge(ctx, palette.nearHill, ridgeProfiles[2], offset * 1.8);
 
   // Tiny background plants and fireflies give the quiet landscape its scale.
-  for (let i = 0; i < 22; i += 1) {
-    const x = (i * 67 + 19) % WIDTH;
-    const y = 538 + (i * 31) % 104 + offset * 1.8;
-    ctx.globalAlpha = 0.35;
-    if (theme === 'winter') {
-      box(ctx, '#65859b', x, y, 4 + i % 4, 1);
-    } else if (theme === 'autumn') {
-      box(ctx, i % 2 ? '#b7844d' : '#c69b58', x, y, 4 + i % 4, 2);
-      box(ctx, '#745b42', x + 2, y + 2, 2, 1);
-    } else {
-      box(ctx, palette.grass, x, y, 2, 7);
-      box(ctx, palette.grass, x - 2, y + 2, 6, 2);
-      if (i % 3 === 0) box(ctx, palette.detail, x, y - 2, 2, 2);
+  const plants = cachedArtwork(ctx, `plants:${theme}`, WIDTH, 116, (sprite) => {
+    sprite.globalAlpha = .35;
+    for (let i = 0; i < 22; i += 1) {
+      const x = (i * 67 + 19) % WIDTH;
+      const y = 2 + (i * 31) % 104;
+      if (theme === 'winter') {
+        box(sprite, '#65859b', x, y, 4 + i % 4, 1);
+      } else if (theme === 'autumn') {
+        box(sprite, i % 2 ? '#b7844d' : '#c69b58', x, y, 4 + i % 4, 2);
+        box(sprite, '#745b42', x + 2, y + 2, 2, 1);
+      } else {
+        box(sprite, palette.grass, x, y, 2, 7);
+        box(sprite, palette.grass, x - 2, y + 2, 6, 2);
+        if (i % 3 === 0) box(sprite, palette.detail, x, y - 2, 2, 2);
+      }
     }
-  }
+  });
+  ctx.drawImage(plants, 0, Math.round(538 + offset * 1.8) - 2);
   if (theme === 'autumn') {
     const leafColors = ['#c89843', '#b96a49', '#d5ae62'];
     for (let i = 0; i < 20; i += 1) {
@@ -483,12 +566,21 @@ function drawPlatformScenery(ctx, platform, y, theme, seed) {
   const x = platform.x + 22 + (platform.width - 44) * fraction;
   // Keep the silhouette clear of both original items and later chain fruit.
   if ([platform.item, platform.chainSatsuma].some((item) => item && Math.abs(item.x - x) < 40)) return;
-  ctx.save();
-  ctx.globalAlpha = theme === 'winter' ? .75 : .68;
-  ctx.translate(Math.round(x), Math.round(y));
-  ctx.scale(detail & 16 ? scale : -scale, scale);
   const choices = platformScenery[theme];
-  choices[platformHash(seed, platform.id, 3) % choices.length](ctx, 0, 0);
+  const choice = platformHash(seed, platform.id, 3) % choices.length;
+  const direction = detail & 16 ? 1 : -1;
+  // The lantern glow spans x=-35..35, y=-47..23 before the maximum 1.1 scale.
+  // Integer padding preserves the original raster positions, including the glow.
+  const artwork = cachedArtwork(ctx, `scenery:${theme}:${choice}:${detail % 4}:${direction}`, 80, 82, (sprite) => {
+    sprite.globalAlpha = theme === 'winter' ? .75 : .68;
+    sprite.translate(40, 54);
+    sprite.scale(direction * scale, scale);
+    choices[choice](sprite, 0, 0);
+  });
+  ctx.save();
+  // Opacity belongs to each overlapping source shape and is already in the image.
+  ctx.globalAlpha = 1;
+  ctx.drawImage(artwork, Math.round(x) - 40, Math.round(y) - 54);
   ctx.restore();
 }
 
@@ -593,6 +685,17 @@ function drawPlatform(ctx, platform, screenY, palette, theme, gameSeed) {
       box(ctx, '#fff4c0', flowerX, y - 9, 2, 2);
     }
   }
+}
+
+function drawCachedPlatform(ctx, platform, screenY, palette, theme, gameSeed) {
+  const width = Math.round(platform.width);
+  // The highest flower reaches -11 and every underside ends at 27; leave a pixel
+  // around these bounds so edge rasterization is never clipped by the sprite.
+  const artwork = cachedArtwork(ctx, `platform:${theme}:${gameSeed}:${platform.id}:${width}`, width + 2, 40, (sprite) => {
+    sprite.translate(1, 12);
+    drawPlatform(sprite, { id: platform.id, x: 0, width }, 0, palette, theme, gameSeed);
+  });
+  ctx.drawImage(artwork, Math.round(platform.x) - 1, Math.round(screenY) - 12);
 }
 
 function drawStrawberry(ctx, x, y) {
@@ -1290,6 +1393,24 @@ function drawPetBoost(ctx, game, bunnyY, reducedMotion, launchStretch) {
   ctx.restore();
 }
 
+function drawTrappedScene(ctx, game, theme, bunnyOptions) {
+  if (game.phase !== 'playing' || game.player.state !== 'trapped') return;
+  const player = game.player;
+  const platform = game.platforms.find((entry) => entry.id === player.platformId);
+  const trap = platform.item;
+  ctx.save();
+  box(ctx, 'rgba(10, 16, 27, 0.76)', 0, 0, WIDTH, HEIGHT);
+  // Magnify the real encounter together, including the 27 px platform underside.
+  // Ears clear the HUD; the full platform depth stays above the 60% tap panel.
+  ctx.translate(WIDTH / 2, HEIGHT * 0.43);
+  ctx.scale(3.5, 3.5);
+  ctx.translate(-(player.x + trap.x) / 2, 0);
+  drawPlatform(ctx, platform, 0, palettes[theme], theme, game.seed);
+  drawTrap(ctx, trap.x, 0, theme, trap.used, bunnyOptions.time, bunnyOptions.reducedMotion);
+  drawBunny(ctx, player.x, 0, bunnyOptions);
+  ctx.restore();
+}
+
 export function drawPettingScene(ctx, game, effects, reducedMotion = false) {
   if (game.phase !== 'playing') return;
   const petting = game.player.state === 'petting';
@@ -1492,7 +1613,7 @@ export function drawGame(ctx, game, options = {}) {
   for (const platform of game.platforms) {
     const y = screenY(platform.y);
     if (y < -50 || y > HEIGHT + 30) continue;
-    drawPlatform(ctx, platform, y, palette, theme, game.seed);
+    drawCachedPlatform(ctx, platform, y, palette, theme, game.seed);
   }
 
   for (const gull of game.gulls ?? []) {
@@ -1540,7 +1661,7 @@ export function drawGame(ctx, game, options = {}) {
     const direction = player.vx < 0 ? 1 : -1;
     for (let i = 0; i < 3; i += 1) box(ctx, palette.cloud, player.x + direction * (21 + i * 7), bunnyY - 6 - i * 5, 5, 2);
   }
-  drawBunny(ctx, player.x, bunnyY, {
+  const bunnyOptions = {
     ...getEatingExpression(game, theme),
     theme,
     pose: game.phase === 'ready' || player.state === 'petting'
@@ -1554,18 +1675,23 @@ export function drawGame(ctx, game, options = {}) {
     vx: player.vx,
     vy: player.vy,
     reducedMotion,
-  });
+  };
+  drawBunny(ctx, player.x, bunnyY, bunnyOptions);
   drawGullHit(ctx, game.lastGullHit, game.time, screenY, theme, reducedMotion);
   if (game.bubble && game.time < game.bubbleUntil) drawBubble(ctx, game.bubble, player.x, bunnyY, theme);
   drawComboBurst(ctx, game, theme, reducedMotion);
 
   // The lower edge is always lethal; a soft shaded lip makes it visible without clutter.
-  const edge = ctx.createLinearGradient(0, HEIGHT - 48, 0, HEIGHT);
-  edge.addColorStop(0, isDarkTheme(theme) ? 'rgba(7,15,28,0)' : theme === 'autumn' ? 'rgba(89,64,42,0)' : 'rgba(65,99,74,0)');
-  edge.addColorStop(1, isDarkTheme(theme) ? 'rgba(7,15,28,.42)' : theme === 'autumn' ? 'rgba(89,64,42,.25)' : 'rgba(65,99,74,.22)');
-  ctx.fillStyle = edge;
-  ctx.fillRect(0, HEIGHT - 48, WIDTH, 48);
+  const edge = cachedArtwork(ctx, `edge:${theme}`, WIDTH, 48, (sprite) => {
+    const gradient = sprite.createLinearGradient(0, 0, 0, 48);
+    gradient.addColorStop(0, isDarkTheme(theme) ? 'rgba(7,15,28,0)' : theme === 'autumn' ? 'rgba(89,64,42,0)' : 'rgba(65,99,74,0)');
+    gradient.addColorStop(1, isDarkTheme(theme) ? 'rgba(7,15,28,.42)' : theme === 'autumn' ? 'rgba(89,64,42,.25)' : 'rgba(65,99,74,.22)');
+    sprite.fillStyle = gradient;
+    sprite.fillRect(0, 0, WIDTH, 48);
+  });
+  ctx.drawImage(edge, 0, HEIGHT - 48);
   drawJoystick(ctx, options.joystick, theme);
   drawPettingScene(ctx, game, options.petEffects, reducedMotion);
+  drawTrappedScene(ctx, game, theme, bunnyOptions);
   ctx.restore();
 }
