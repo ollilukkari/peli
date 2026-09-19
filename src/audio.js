@@ -4,6 +4,7 @@ const autumnTrack = new URL('../assets/audio/kalm-mjork.mp3', import.meta.url).h
 const winterTrack = new URL('../assets/audio/frozen-minor.mp3', import.meta.url).href;
 const musicTracks = { meadow: summerTrack, autumn: autumnTrack, winter: winterTrack, kvlt: winterTrack };
 const MUSIC_VOLUME = .3;
+const AUTUMN_MUSIC_VOLUME = MUSIC_VOLUME * 1.1;
 const FADE_OUT = .12;
 const FADE_IN = .18;
 
@@ -114,7 +115,7 @@ export class GameAudio {
     }
     if (this.musicRequest) return;
     if (!this.musicElement.paused) {
-      this.setMusicLevel(MUSIC_VOLUME, FADE_IN);
+      this.setMusicLevel(this.musicVolume(), FADE_IN);
       return;
     }
     this.setMusicLevel(0);
@@ -123,7 +124,7 @@ export class GameAudio {
     this.musicElement.play().then(() => {
       if (this.musicRequest === request) {
         this.musicRequest = null;
-        if (this.wantsMusic() && !this.musicTransition) this.setMusicLevel(MUSIC_VOLUME, FADE_IN);
+        if (this.wantsMusic() && !this.musicTransition) this.setMusicLevel(this.musicVolume(), FADE_IN);
       }
       // A delayed play result never changes the scene or issues another play.
       if (!this.wantsMusic()) this.musicElement.pause();
@@ -164,6 +165,10 @@ export class GameAudio {
     const time = this.context.currentTime;
     if (time >= end) return to;
     return from + (to - from) * Math.max(0, (time - start) / (end - start));
+  }
+
+  musicVolume() {
+    return this.theme === 'autumn' ? AUTUMN_MUSIC_VOLUME : MUSIC_VOLUME;
   }
 
   setMusicLevel(to, duration = 0) {
