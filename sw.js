@@ -1,5 +1,5 @@
 // Change RELEASE for every deployment that changes an app file.
-const RELEASE = '2026-09-19.zab-return-petting-1';
+const RELEASE = '2026-09-19.mobile-combo-font-1';
 const ROOT = new URL('./', self.location.href);
 const CACHE_PREFIX = `ponppu:${encodeURIComponent(ROOT.pathname)}:`;
 const CACHE_NAME = `${CACHE_PREFIX}${RELEASE}`;
@@ -7,6 +7,7 @@ const APP_FILES = [
   'index.html', 'style.css', 'src/main.js', 'src/game.js', 'src/render.js',
   'src/audio.js', 'src/kvlt-music.js', 'src/pwa.js', 'manifest.webmanifest', 'assets/icon.svg',
   'assets/icon-192.png', 'assets/icon-512.png',
+  'assets/fonts/caprasimo-latin.woff2', 'assets/fonts/OFL.txt',
   'assets/audio/frozen-minor.mp3', 'assets/audio/summer-platformer.mp3',
   'assets/audio/kalm-mjork.mp3', 'assets/audio/zab-petting.mp3',
 ].map((file) => new URL(file, ROOT).href);

@@ -1,4 +1,5 @@
 @charset "UTF-8";
+@font-face{font-family:Caprasimo;src:url('./assets/fonts/caprasimo-latin.woff2') format('woff2');font-style:normal;font-weight:400;font-display:block}
 html[data-install-view="true"] .layout{display:none}
 .install-screen{position:fixed;inset:0;z-index:100;width:100%;max-width:none;height:100dvh;max-height:none;margin:0;padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));border:0;border-radius:0;background:#fffcf4;color:#343b35;text-align:center;overflow:auto}
 .install-content{width:100%;max-width:380px;min-height:100%;margin:auto;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -37,7 +38,7 @@ html[data-install-view="true"] .layout{display:none}
 .game-frame[data-theme="winter"] .dialog-card{background:#182a40;border-color:#7894aa}
 @media(max-height:600px) and (orientation:landscape){.menu h1{margin-bottom:10px}.theme-select{margin-bottom:8px}.theme-select button{padding:2px 1px;gap:2px;font-size:8px}.theme-select button>span{font-size:12px}.record-line{margin-top:10px}}
 
-.combo-badge{margin-top:7px;color:#644532;font:20px/1.15 "Cooper Black";text-shadow:1px 1px #fffbed}
+.combo-badge{margin-top:7px;color:#644532;font:20px/1.15 Caprasimo;text-shadow:1px 1px #fffbed}
 .game-frame[data-theme="kvlt"] .combo-badge{color:#f7d4a8;text-shadow:1px 1px #302439}
 .game-frame[data-theme="winter"] .combo-badge{color:#e1f3fc;text-shadow:1px 1px #21394e}
 /* Carry each world's palette through the surrounding page and browser chrome. */

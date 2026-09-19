@@ -8,6 +8,7 @@ const publicFiles = new Set([
   'index.html', 'style.css', 'manifest.webmanifest', 'sw.js',
   'src/main.js', 'src/game.js', 'src/render.js', 'src/audio.js', 'src/kvlt-music.js', 'src/pwa.js',
   'assets/icon.svg', 'assets/icon-192.png', 'assets/icon-512.png',
+  'assets/fonts/caprasimo-latin.woff2', 'assets/fonts/OFL.txt',
   'assets/audio/frozen-minor.mp3', 'assets/audio/summer-platformer.mp3',
   'assets/audio/kalm-mjork.mp3', 'assets/audio/zab-petting.mp3',
 ]);
@@ -19,6 +20,8 @@ const mimeTypes = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.mp3': 'audio/mpeg',
+  '.woff2': 'font/woff2',
+  '.txt': 'text/plain; charset=utf-8',
 };
 
 let host = '127.0.0.1';

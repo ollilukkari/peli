@@ -1596,9 +1596,9 @@ function drawComboBurst(ctx, game, theme, reducedMotion) {
       : { fill: '#ffd378', ink: '#65404b', border: '#fff9d7', spark: '#ffbd65' };
   const label = String(game.satsumaStreak);
   ctx.save();
-  ctx.font = '64px "Cooper Black"';
+  ctx.font = '64px Caprasimo';
   const fontSize = Math.min(64, Math.floor(64 * 228 / ctx.measureText(label).width));
-  ctx.font = `${fontSize}px "Cooper Black"`;
+  ctx.font = `${fontSize}px Caprasimo`;
   const halfWidth = Math.max(48, (Math.ceil(ctx.measureText(label).width) + 28) / 2);
   // Keep the whole celebration below the midpoint and clear of the bottom controls.
   const positions = [[180, 420], [132, 452], [228, 436], [150, 468], [222, 456]];

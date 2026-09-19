@@ -4,6 +4,21 @@ import { GameAudio } from './audio.js';
 import { setupPwa, setupInstall } from './pwa.js';
 
 const $ = (selector) => document.querySelector(selector);
+const comboFont = '64px Caprasimo';
+const comboCharacters = '0123456789× KOMBO';
+let comboFontReady = document.fonts.check(comboFont, comboCharacters);
+$('#start').disabled = !comboFontReady;
+if (!comboFontReady) {
+  $('#font-status').hidden = false;
+  document.fonts.load(comboFont, comboCharacters).then((faces) => {
+    if (!faces.length) throw new Error('Combo font was not loaded');
+    comboFontReady = true;
+    $('#start').disabled = false;
+    $('#font-status').hidden = true;
+  }).catch(() => {
+    $('#font-status').textContent = 'Pelin lataus epäonnistui. Tarkista verkkoyhteys ja päivitä sivu.';
+  });
+}
 const installView = new URLSearchParams(window.location.search).get('install') === '1'
   && !matchMedia('(display-mode: standalone)').matches;
 $('#install-title').append($('.menu-title .title-art').cloneNode(true));
@@ -140,6 +155,7 @@ function processEvents() {
   }
 }
 function startRound() {
+  if (!comboFontReady) return;
   petEffects = { time: 0, hearts: [] };
   clearInput();
   downPointers.clear();

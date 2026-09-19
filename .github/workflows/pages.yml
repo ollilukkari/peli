@@ -58,6 +58,7 @@ jobs:
                   continue
               allowed = source.suffix.lower() in public_extensions
               allowed = allowed or name == 'manifest.json'
+              allowed = allowed or name == 'assets/fonts/OFL.txt'
               allowed = allowed or (in_public_dir and source.suffix.lower() == '.json')
               if not allowed:
                   continue

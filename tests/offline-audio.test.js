@@ -103,6 +103,19 @@ test('a complete offline release precaches every MP3 under the project path', as
   }
 });
 
+test('combo webfont and its license are available offline under the deployed project path', async () => {
+  const app = await installed({ path: '/peli/' });
+  for (const file of ['assets/fonts/caprasimo-latin.woff2', 'assets/fonts/OFL.txt']) {
+    assert.ok(app.downloads.some((request) => request.url === new URL(file, app.root).href));
+    const response = await app.fetchFile(file);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('X-Release-Fixture'), 'cached');
+  }
+  assert.equal(app.unexpectedFetches, 0);
+  const incomplete = worker({ missing: 'caprasimo-latin.woff2' });
+  await assert.rejects(incomplete.dispatch('install'), /Precache resource unavailable/);
+});
+
 test('offline audio serves exact prefix, middle, open-ended and suffix bytes', async () => {
   const app = await installed();
   for (const [range, start, end] of [

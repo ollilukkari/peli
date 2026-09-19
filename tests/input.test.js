@@ -9,7 +9,7 @@ import * as core from '../src/game.js';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
   .replace(/^import .+;\r?\n/gm, '');
 
-function application({ autoStart = true, storedSettings = null, search = '', touch = false } = {}) {
+function application({ autoStart = true, storedSettings = null, search = '', touch = false, fontReady = true, fontLoad = Promise.resolve([{}]) } = {}) {
   class Element {
     constructor(isControl = false) {
       this.isControl = isControl;
@@ -63,6 +63,7 @@ function application({ autoStart = true, storedSettings = null, search = '', tou
     return [theme, button];
   }));
   const document = Object.assign(new Element(), {
+    fonts: { check: () => fontReady, load: () => fontLoad },
     hidden: false,
     body: new Element(),
     documentElement: { style: {} },
@@ -136,6 +137,38 @@ function application({ autoStart = true, storedSettings = null, search = '', tou
     },
   };
 }
+
+test('a slow font load blocks both button and touch starts until the bundled font is ready', async () => {
+  const loading = Promise.withResolvers();
+  const app = application({ autoStart: false, touch: true, fontReady: false, fontLoad: loading.promise });
+  assert.equal(app.element('#start').disabled, true);
+  assert.equal(app.element('#font-status').hidden, false);
+  app.element('#start').dispatch('click');
+  app.pointer('pointerdown', 1, 120, 500);
+  app.pointer('pointerup', 1, 120, 500);
+  assert.equal(app.game.phase, 'ready');
+  loading.resolve([{}]);
+  await loading.promise;
+  assert.equal(app.element('#start').disabled, false);
+  assert.equal(app.element('#font-status').hidden, true);
+  app.element('#start').dispatch('click');
+  assert.equal(app.game.phase, 'playing');
+});
+
+test('missing or rejected font loading reports the error and cannot start with a substituted font', async () => {
+  for (const reject of [false, true]) {
+    const loading = Promise.withResolvers();
+    const app = application({ autoStart: false, fontReady: false, fontLoad: loading.promise });
+    if (reject) loading.reject(new Error('Font download failed'));
+    else loading.resolve([]);
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(app.element('#start').disabled, true);
+    assert.match(app.element('#font-status').textContent, /lataus epäonnistui/);
+    app.element('#start').dispatch('click');
+    assert.equal(app.game.phase, 'ready');
+  }
+});
 
 test('ten arrow presses free the bunny and the freeing key cannot steer until released', () => {
   const app = application();
