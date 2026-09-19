@@ -3,6 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <script>
+      if (new URLSearchParams(location.search).get('install') === '1' && !matchMedia('(display-mode: standalone)').matches) {
+        document.documentElement.dataset.installView = 'true';
+      }
+    </script>
     <meta name="theme-color" content="#e6edda">
     <meta name="description" content="Pieni pupu, iso seikkailu. Söpö pikselipeli puhelimelle ja tietokoneelle.">
     <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
@@ -86,16 +91,15 @@
       </section>
 
     </main>
-    <dialog id="install-dialog" class="install-dialog" aria-labelledby="install-title" aria-describedby="install-status">
-      <img src="./assets/icon-192.png" width="88" height="88" alt="">
-      <p class="eyebrow">PIKKU PUPUN POMPUTTELU PELI</p>
-      <h2 id="install-title">Pupu puhelimeen</h2>
-      <p>Saat pelille oman kuvakkeen aloitusnäyttöön.</p>
-      <p id="install-status" role="status" aria-live="polite">Odotetaan selaimen asennusvalmiutta.</p>
-      <button id="install-confirm" class="install-button" disabled>Asenna peli</button>
-      <p id="install-help" class="install-help">Jos painike ei aktivoidu, avaa tämä linkki Androidin Chromessa. Viestisovelluksen oma selain ei välttämättä tue asennusta. Jos peli on jo asennettu, avaa se aloitusnäytön kuvakkeesta.</p>
-      <button id="install-close" class="quiet-button" autofocus>Jatka peliin</button>
-    </dialog>
+    <section id="install-screen" hidden class="install-screen" aria-labelledby="install-title" aria-describedby="install-status">
+      <div class="install-content">
+        <h2 id="install-title"><span class="sr-only">Pikku Pupun Pomputtelu Peli</span></h2>
+        <p>Asenna peli ja käynnistä se puhelimen sovellusvalikosta.</p>
+        <p id="install-status" role="status" aria-live="polite">Odotetaan selaimen asennusvalmiutta.</p>
+        <button id="install-confirm" class="install-button" disabled>Asenna peli</button>
+        <p id="install-help" class="install-help">Jos painike ei aktivoidu, avaa tämä linkki Androidin Chromessa. Viestisovelluksen oma selain ei välttämättä tue asennusta. Jos peli on jo asennettu, löydät sen puhelimen sovellusvalikosta.</p>
+      </div>
+    </section>
     <p id="announcer" class="sr-only" role="status" aria-live="polite"></p>
     <script type="module" src="./src/main.js"></script>
   </body>

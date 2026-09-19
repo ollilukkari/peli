@@ -21,8 +21,8 @@ function installation({ search = '?install=1', standalone = false } = {}) {
   });
   const ui = {
     menuButton: surface({ hidden: true }),
-    dialog: surface({ open: false, showModal() { this.open = true; }, close() { this.open = false; this.dispatch('close'); } }),
-    installButton: surface({ disabled: true }), closeButton: surface(), status: surface(), help: surface(),
+    screen: surface({ hidden: true }),
+    installButton: surface({ disabled: true }), status: surface(), help: surface(),
     onPrompt() { ui.pauses = (ui.pauses ?? 0) + 1; },
   };
   vm.runInNewContext(`${source}\nsetupInstall(ui);`, { window, URL, URLSearchParams, ui });
@@ -39,12 +39,12 @@ function installation({ search = '?install=1', standalone = false } = {}) {
   return { window, ...ui, ui, offer };
 }
 
-test('install link opens a modal and waits for a real browser offer; normal link stays in game', () => {
+test('install link opens its screen and waits for a real browser offer; normal link stays in game', () => {
   const app = installation();
-  assert.equal(app.dialog.open, true);
+  assert.equal(app.screen.hidden, false);
   assert.equal(app.installButton.disabled, true);
   assert.equal(app.help.hidden, false);
-  assert.equal(installation({ search: '' }).dialog.open, false);
+  assert.equal(installation({ search: '' }).screen.hidden, true);
 });
 
 test('installation needs a click and consumes each prompt only once', async () => {
@@ -98,19 +98,18 @@ test('appinstalled before userChoice is not overwritten by the late result', asy
   assert.match(app.status.textContent, /Peli on asennettu/);
 });
 
-test('installed standalone game skips install modal and ignores late install offers', () => {
+test('installed standalone game skips install screen and ignores late install offers', () => {
   const app = installation({ standalone: true });
-  assert.equal(app.dialog.open, false);
+  assert.equal(app.screen.hidden, true);
   assert.equal(app.installButton.hidden, true);
   app.offer();
   assert.equal(app.menuButton.hidden, true);
 });
 
-test('leaving install view removes only its query parameter without reloading', () => {
+test('other query parameters do not dismiss the install screen or rewrite the link', () => {
   const app = installation({ search: '?install=1&creature=test' });
-  app.closeButton.dispatch('click');
-  assert.equal(app.dialog.open, false);
-  assert.equal(app.window.replacedUrl, 'https://example.test/peli/?creature=test#game');
+  assert.equal(app.screen.hidden, false);
+  assert.equal(app.window.replacedUrl, undefined);
 });
 
 test('existing game menu install button still uses the same native flow', async () => {
@@ -118,5 +117,5 @@ test('existing game menu install button still uses the same native flow', async 
   const offer = app.offer();
   await app.menuButton.dispatch('click');
   assert.equal(offer.calls, 1);
-  assert.equal(app.dialog.open, false);
+  assert.equal(app.screen.hidden, true);
 });

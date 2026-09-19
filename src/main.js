@@ -4,6 +4,9 @@ import { GameAudio } from './audio.js';
 import { setupPwa, setupInstall } from './pwa.js';
 
 const $ = (selector) => document.querySelector(selector);
+const installView = new URLSearchParams(window.location.search).get('install') === '1'
+  && !matchMedia('(display-mode: standalone)').matches;
+$('#install-title').append($('.menu-title .title-art').cloneNode(true));
 const canvas = $('#game');
 const ctx = canvas.getContext('2d');
 const frame = $('#game-frame');
@@ -386,9 +389,8 @@ $('#update').addEventListener('click', async () => {
 });
 setupInstall({
   menuButton: $('#install'),
-  dialog: $('#install-dialog'),
+  screen: $('#install-screen'),
   installButton: $('#install-confirm'),
-  closeButton: $('#install-close'),
   status: $('#install-status'),
   help: $('#install-help'),
   onPrompt: pauseOnLeave,
@@ -428,4 +430,4 @@ refreshSound();
 refreshMusic();
 refreshBest();
 refreshUi();
-requestAnimationFrame(loop);
+if (!installView) requestAnimationFrame(loop);

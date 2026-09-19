@@ -1,5 +1,5 @@
 /** Share ?install=1 to open installation help without changing the app identity. */
-export function setupInstall({ menuButton, dialog, installButton, closeButton, status, help, onPrompt }) {
+export function setupInstall({ menuButton, screen, installButton, status, help, onPrompt }) {
   let pendingPrompt = null;
   let installed = window.matchMedia('(display-mode: standalone)').matches;
   let prompting = false;
@@ -14,7 +14,7 @@ export function setupInstall({ menuButton, dialog, installButton, closeButton, s
   function markInstalled() {
     installed = true;
     pendingPrompt = null;
-    showStatus('Peli on asennettu. Löydät sen puhelimen aloitusnäytöltä.');
+    showStatus('Peli on asennettu. Löydät sen puhelimen sovellusvalikosta.');
     installButton.hidden = true;
   }
 
@@ -40,7 +40,7 @@ export function setupInstall({ menuButton, dialog, installButton, closeButton, s
       if (choice.outcome === 'accepted') {
         showStatus('Asennus hyväksytty. Odota, että puhelin viimeistelee asennuksen.');
       } else {
-        showStatus('Asennus peruttiin. Voit jatkaa peliin ja palata asennuslinkkiin myöhemmin.', { ready: !!pendingPrompt, showHelp: !pendingPrompt });
+        showStatus('Asennus peruttiin. Avaa asennuslinkki uudelleen, kun haluat asentaa pelin.', { ready: !!pendingPrompt, showHelp: !pendingPrompt });
       }
     } catch {
       if (!installed) showStatus('Asennusikkunaa ei voitu avata. Avaa asennuslinkki uudelleen Chromessa.', { showHelp: true });
@@ -51,16 +51,10 @@ export function setupInstall({ menuButton, dialog, installButton, closeButton, s
 
   menuButton.addEventListener('click', install);
   installButton.addEventListener('click', install);
-  closeButton.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('install');
-    window.history.replaceState(window.history.state, '', url);
-  });
 
   if (installed) markInstalled();
   if (new URLSearchParams(window.location.search).get('install') === '1' && !installed) {
-    dialog.showModal();
+    screen.hidden = false;
   }
 }
 

@@ -26,11 +26,13 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 
 **Androidin asennuslinkki: [Asenna peli puhelimeen](https://ollilukkari.github.io/peli/?install=1)**
 
-Linkki avaa asennusnäkymän. Androidin tuetussa selaimessa (esimerkiksi Chrome)
+Linkki avaa koko ruudun asennusnäkymän pelin otsikkografiikalla. Selainpeliä
+ei näytetä taustalla eikä sen animaatiota käynnistetä. Pelaajaa ohjataan avaamaan
+asennettu peli sovellusvalikosta. Androidin tuetussa selaimessa (esimerkiksi Chrome)
 **Asenna peli** aktivoituu, kun selain tarjoaa asennusta. Painike avaa selaimen
 vahvistuksen; linkki ei voi asentaa peliä ilman käyttäjän hyväksyntää.
 Viestisovelluksen sisäisestä selaimesta linkki voi olla tarpeen avata Chromessa.
-Jo asennettu peli avataan aloitusnäytön kuvakkeesta. Sovelluksena avattuna
+Jo asennettu peli avataan puhelimen sovellusvalikosta. Sovelluksena avattuna
 asennusnäkymää ei näytetä. Tavallinen pelilinkki toimii kuten ennenkin.
 
 HTTPS-osoitteessa tai localhostissa peli tallentaa onnistuneen ensimmäisen latauksen jälkeen koko pelipaketin offline-käyttöön. Tuettu selain voi tarjota asennusta aloitusnäytölle. Valmiista päivityksestä kerrotaan näytön yläreunan ilmoituspalkissa, joka näkyy ilman vierittämistä. Kierroksen aikana ilmoitus on tiedoksi; uusi versio otetaan käyttöön päivityspainikkeesta kierrosten välissä.
