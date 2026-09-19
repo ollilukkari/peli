@@ -59,6 +59,11 @@ test('trampolines use the same combo bell as fruit at each combo level', async (
 test('winter combos use two muted power-chord hits with bounded gain, capped levels and full cleanup', async () => {
   const app = application({ musicEnabled: false });
   await app.start('winter', 'playing');
+  app.audio.play('bounce', 'winter');
+  const jump = app.context.oscillators.at(-1);
+  const jumpVolume = jump.connections[0].gain.events.find(([type]) => type === 'linear')[1];
+  assert.equal(jumpVolume, .027 * .5, 'winter normal jump is half its previous gain');
+  jump.onended();
   const now = app.context.currentTime;
   const pitches = [];
   const volumes = [];
@@ -84,6 +89,8 @@ test('winter combos use two muted power-chord hits with bounded gain, capped lev
     const attacks = gain.gain.events.filter(([type]) => type === 'linear');
     const tails = gain.gain.events.filter(([type, value]) => type === 'exponential' && value === .0001);
     assert.equal(attacks.length, 2);
+    assert.ok(attacks.every(([, peak]) => peak > jumpVolume * 2),
+      'both combo hits stay clearly above the winter jump at every combo level');
     assert.ok(tails[0][2] < attacks[1][2], 'separated muted hits');
     assert.ok(attacks[0][1] <= .0481);
     assert.equal(gain.connections[0], app.audio.effectsGain);
@@ -93,6 +100,8 @@ test('winter combos use two muted power-chord hits with bounded gain, capped lev
     const [trampolineRoot, trampolineFifth] = app.context.oscillators.slice(-2);
     assert.deepEqual(trampolineRoot.frequency.events, root.frequency.events);
     assert.deepEqual(trampolineFifth.frequency.events, fifth.frequency.events);
+    assert.deepEqual(trampolineRoot.connections[0].connections[0].connections[0].gain.events,
+      gain.gain.events, 'trampolines and fruit use the same louder combo envelope');
     root.onended();
     assert.equal(distortion.disconnected, false, 'shared nodes survive until both voices end');
     fifth.onended();
@@ -700,7 +709,14 @@ test('Autumn and Meadow SFX match, Winter remains darker and gull has its own no
     assert.deepEqual(sound(event, 'autumn'), meadow, event);
     assert.equal(meadow.type, 'triangle');
     const kvlt = sound(event, 'kvlt');
-    assert.deepEqual(sound(event, 'winter'), kvlt, event);
+    const winterSound = sound(event, 'winter');
+    if (event === 'bounce') {
+      const expectedEnvelope = kvlt.envelope.map(([type, value, time]) =>
+        [type, type === 'linear' ? value * .5 : value, time]);
+      assert.deepEqual(winterSound, { ...kvlt, envelope: expectedEnvelope }, event);
+    } else {
+      assert.deepEqual(winterSound, kvlt, event);
+    }
     assert.equal(kvlt.type, 'sawtooth');
     assert.equal(kvlt.frequency[0][1], meadow.frequency[0][1] * 0.55);
   }

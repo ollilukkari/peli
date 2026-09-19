@@ -385,7 +385,8 @@ export class GameAudio {
     const gain = context.createGain();
     oscillator.type = comboLevel !== null ? 'sine' : isKvlt(theme) ? 'sawtooth' : 'triangle';
     const pitch = isKvlt(theme) ? .55 : 1;
-    const volume = comboLevel !== null ? .045 + comboLevel * .003 : isKvlt(theme) ? .027 : .065;
+    const baseVolume = comboLevel !== null ? .045 + comboLevel * .003 : isKvlt(theme) ? .027 : .065;
+    const volume = baseVolume * (theme === 'winter' && event === 'bounce' ? .5 : 1);
     if (event === 'over') {
       // Three separated descending notes: short "di-dy", then a sustained "dyy".
       for (const [frequency, offset, length] of [[from, 0, .18], [277, .23, .18], [to, .46, .62]]) {
