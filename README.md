@@ -1,4 +1,4 @@
-# Pupun pomputtelu peli
+# Pikku Pupun Pomputtelu Peli
 
 Puhelimen pystyasentoon suunniteltu selainpeli, jossa valkoinen pupu pomppii kohti pilviä. Tietokoneella pelialue säilyttää saman pystysuuntaisen kuvasuhteen.
 
