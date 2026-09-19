@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  WIDTH, HEIGHT, PHYSICS, createGame, startGame, stepGame, tapTrap, pauseGame, resumeGame,
+  WIDTH, HEIGHT, PHYSICS, createGame, startGame, stepGame, tapTrap, strokeDog, pauseGame, resumeGame,
 } from '../src/game.js';
 
 const DT = 1 / 120;
@@ -457,7 +457,7 @@ test('real physics can land safely after sampled jumps from either patch edge an
             else rightAxis = axis;
           }
           const context = `seed ${seed}, platform ${next.id}, side ${side}, velocity ${startVx}`;
-          assert.equal(result.events[0]?.type, 'bounce', context);
+          assert.ok(['bounce', 'dog'].includes(result.events[0]?.type), context);
           assert.ok(Math.abs(result.player.x - next.safeX) <= next.safeWidth / 2, context);
           assert.equal(result.player.y, next.y, context);
           if (result.platforms[0].item) assert.equal(result.platforms[0].item.used, false, context);
@@ -971,4 +971,87 @@ test('gull flights are deterministic, sparse, bounded and independent of platfor
     }
   }
   assert.ok(sawLeft && sawRight);
+});
+
+
+test('dogs recur at 1000–2000 m intervals and patrol inside their platforms', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    const game = withoutGulls(createGame(seed));
+    startGame(game);
+    let lastDogY = game.startY;
+    const seen = new Set();
+    for (let height = 500; height < 150000; height += 400) {
+      game.camera = height;
+      Object.assign(game.player, { y: height + 250, state: 'trapped' });
+      stepGame(game, DT);
+      for (const platform of game.platforms) {
+        if (!platform.dog || seen.has(platform.id)) continue;
+        const gap = (platform.y - lastDogY) / PHYSICS.pixelsPerMeter;
+        assert.ok(gap >= 1000 && gap <= 2000, `gap ${gap}, seed ${seed}`);
+        assert.equal(platform.item, null);
+        assert.ok(platform.dog.x >= platform.x + 16);
+        assert.ok(platform.dog.x <= platform.x + platform.width - 16);
+        seen.add(platform.id);
+        lastDogY = platform.y;
+      }
+    }
+    assert.ok(seen.size >= 5);
+  }
+});
+
+test('nearby dog landing freezes the world until ten strokes and cannot trap twice', () => {
+  const game = emptyGame();
+  const platform = { id: 9, x: 80, width: 100, y: 300, item: null,
+    dog: { x: 96, direction: 1, petted: false } };
+  game.platforms = [platform];
+  Object.assign(game.player, { x: 110, y: 301, vy: -300 });
+  stepGame(game, DT);
+  assert.equal(game.player.state, 'petting');
+  const snapshot = JSON.stringify(game);
+  stepGame(game, 60, 1);
+  assert.equal(JSON.stringify(game), snapshot, 'mandatory petting must never cause a scrolling loss');
+  assert.equal(tapTrap(game), false);
+  pauseGame(game);
+  assert.equal(strokeDog(game), false);
+  resumeGame(game);
+  for (let i = 0; i < 9; i++) assert.equal(strokeDog(game), true);
+  assert.equal(game.player.state, 'petting');
+  strokeDog(game);
+  assert.equal(game.player.state, 'air');
+  assert.equal(platform.dog.petted, true);
+  assert.equal(game.player.vy, PHYSICS.jumpSpeed);
+  assert.equal(strokeDog(game), false);
+  Object.assign(game.player, { x: 110, y: 301, vy: -300 });
+  stepGame(game, DT);
+  assert.equal(game.player.state, 'air');
+});
+
+test('a distant landing and an upward pass do not trigger dog petting', () => {
+  for (const [x, vy] of [[240, -300], [110, 300]]) {
+    const game = emptyGame();
+    game.platforms = [{ id: 9, x: 80, width: 200, y: 300, item: null,
+      dog: { x: 96, direction: 1, petted: false } }];
+    Object.assign(game.player, { x, y: vy > 0 ? 299 : 301, vy });
+    stepGame(game, DT);
+    assert.equal(game.player.state, 'air');
+  }
+});
+
+
+test('a dog walks both ways and never steps off its platform', () => {
+  const game = emptyGame();
+  const platform = { id: 8, x: 100, width: 70, y: 300, item: null,
+    dog: { x: 116, direction: 1, petted: false } };
+  game.platforms = [platform];
+  Object.assign(game.player, { y: 500, state: 'trapped' });
+  const directions = new Set();
+  const positions = new Set();
+  for (let i = 0; i < 600; i++) {
+    stepGame(game, DT);
+    assert.ok(platform.dog.x >= 116 && platform.dog.x <= 154);
+    directions.add(platform.dog.direction);
+    positions.add(Math.round(platform.dog.x));
+  }
+  assert.equal(directions.size, 2);
+  assert.ok(positions.size > 30);
 });

@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, createGame, startGame, stepGame, tapTrap, pauseGame, resumeGame } from './game.js';
+import { WIDTH, HEIGHT, createGame, startGame, stepGame, tapTrap, strokeDog, pauseGame, resumeGame } from './game.js';
 import { drawGame } from './render.js';
 import { GameAudio } from './audio.js';
 import { setupPwa } from './pwa.js';
@@ -49,6 +49,7 @@ $('#storage-notice').hidden = storageAvailable;
 const audio = new GameAudio(settings.sound, settings.music);
 let game = createGame(20260918);
 let joystick = null;
+let petGesture = null;
 let accumulator = 0;
 let previousTime = 0;
 let updateReady = false;
@@ -88,6 +89,8 @@ function setTheme(theme) {
   audio.setScene(theme, game.phase);
 }
 function clearInput() {
+  if (petGesture && canvas.hasPointerCapture(petGesture.id)) canvas.releasePointerCapture(petGesture.id);
+  petGesture = null;
   keys.clear();
   tapKeys.clear();
   if (joystick && canvas.hasPointerCapture(joystick.id)) canvas.releasePointerCapture(joystick.id);
@@ -96,6 +99,10 @@ function clearInput() {
 function processEvents() {
   for (const event of game.events.splice(0)) {
     audio.play(event.type, settings.theme);
+    if (event.type === 'dog') {
+      clearInput();
+      announce('Silitä koiraa pyyhkäisemällä ruutua kymmenen kertaa. Hiirellä pidä painike pohjassa ja vedä.');
+    }
     if (event.type === 'trap') {
       clearInput();
       announce('Jalka jäi ansaan. Napauta neljä kertaa tai paina nuolinäppäimiä tai välilyöntiä neljästi.');
@@ -184,6 +191,9 @@ function refreshUi() {
     wasTrapped = trapped;
     lastTapCount = game.trapTaps;
   }
+  const petting = game.phase === 'playing' && game.player.state === 'petting';
+  $('#dog-notice').hidden = !petting;
+  if (petting) $('#dog-count').textContent = `${game.dogStrokes}/10`;
   refreshUpdateNotice();
 }
 
@@ -251,6 +261,13 @@ canvas.addEventListener('pointerdown', (event) => {
   if (game.phase === 'ready' && point.y >= HEIGHT / 2) startRound();
   if (game.phase !== 'playing') return;
   audio.unlock();
+  if (game.player.state === 'petting') {
+    if (!petGesture) {
+      petGesture = { id: event.pointerId, anchor: point, direction: null };
+      canvas.setPointerCapture(event.pointerId);
+    }
+    return;
+  }
   if (game.player.state === 'trapped') {
     tapTrap(game);
     processEvents();
@@ -263,6 +280,25 @@ canvas.addEventListener('pointerdown', (event) => {
   canvas.focus({ preventScroll: true });
 });
 canvas.addEventListener('pointermove', (event) => {
+  if (petGesture?.id === event.pointerId) {
+    if (game.phase !== 'playing' || game.player.state !== 'petting') return;
+    const point = pointFromEvent(event);
+    const dx = point.x - petGesture.anchor.x;
+    const dy = point.y - petGesture.anchor.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 32) return;
+    const direction = { x: dx / distance, y: dy / distance };
+    const previous = petGesture.direction;
+    // One stroke per deliberate direction; a long drag cannot count repeatedly.
+    if (!previous || direction.x * previous.x + direction.y * previous.y < -0.5) {
+      strokeDog(game);
+      petGesture.direction = direction;
+      processEvents();
+      refreshUi();
+    }
+    petGesture.anchor = point;
+    return;
+  }
   if (joystick?.id !== event.pointerId) return;
   const point = pointFromEvent(event);
   joystick.dx = Math.max(-52, Math.min(52, point.x - joystick.x));
@@ -270,6 +306,7 @@ canvas.addEventListener('pointermove', (event) => {
 });
 function endPointer(event) {
   downPointers.delete(event.pointerId);
+  if (petGesture?.id === event.pointerId) petGesture = null;
   if (joystick?.id === event.pointerId) joystick = null;
 }
 window.addEventListener('pointerup', endPointer);

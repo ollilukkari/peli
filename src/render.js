@@ -723,7 +723,7 @@ function drawGullHit(ctx, hit, time, screenY, theme, reducedMotion) {
 /** Draw the round Ponppu character, anchored at the unchanged physics feet. */
 export function drawBunny(ctx, x, feetY, {
   theme = 'meadow', pose = 'idle', scale = 1, facing = 1, time = 0,
-  impact = 0, vx = 0, vy = 0, reducedMotion = false,
+  impact = 0, vx = 0, vy = 0, reducedMotion = false, skin = theme === 'winter' ? 'winter' : theme === 'kvlt' ? 'corpse-paint' : 'classic',
 } = {}) {
   ctx.save();
   ctx.translate(Math.round(x), Math.round(feetY));
@@ -731,7 +731,7 @@ export function drawBunny(ctx, x, feetY, {
   const outline = theme === 'winter' ? '#142638' : theme === 'kvlt' ? '#373549' : '#62505a';
   const white = '#fffbee';
   const shade = '#dcd6d8';
-  const pink = theme === 'winter' ? '#c1b6c3' : theme === 'kvlt' ? '#c6a2b4' : '#eea9b2';
+  const pink = theme === 'kvlt' ? '#c6a2b4' : '#eea9b2';
   const rising = pose === 'jump';
   const falling = pose === 'fall';
   const trapped = pose === 'trapped';
@@ -791,8 +791,18 @@ export function drawBunny(ctx, x, feetY, {
     box(ctx, '#cc6d2e', -2, -42, 2, 2);
   }
 
+  if (skin === 'winter') {
+    pixelOval(ctx, '#19191f', -18, -39, 36, 12, 3);
+    pixelOval(ctx, '#303039', -15, -37, 30, 8, 2);
+    box(ctx, '#41414b', -9, -37, 15, 2);
+    pixelOval(ctx, '#17171d', -21, -33, 42, 7, 1);
+    box(ctx, '#303039', -19, -32, 38, 4);
+    for (let rib = -17; rib <= 17; rib += 4) box(ctx, '#494953', rib, -32, 1, 4);
+  }
+
   const eyeX = facing < 0 ? -1 : 1;
-  if (isDarkTheme(theme)) {
+  // Archived skin stays independently selectable in code for a future skin menu.
+  if (skin === 'corpse-paint') {
     const paint = '#29252e';
     // Rounded eye paint and short cheek marks keep the little goth face gentle.
     pixelOval(ctx, paint, -12 + eyeX, -26, 10, 10, 2);
@@ -835,9 +845,23 @@ export function drawBunny(ctx, x, feetY, {
     box(ctx, '#f4bac1', 11, -19, 5, 3);
   }
   box(ctx, pink, -1 + eyeX, -19, 3, 2);
-  box(ctx, outline, eyeX, -16, 1, 2);
-  box(ctx, outline, -2 + eyeX, -15, 2, 1);
-  box(ctx, outline, 1 + eyeX, -15, 2, 1);
+  // Two tiny upturned cheeks make a gentle bunny smile beneath the nose.
+  const smileInk = '#59404a';
+  box(ctx, smileInk, eyeX, -17, 1, 2);
+  box(ctx, smileInk, -4 + eyeX, -16, 1, 2);
+  box(ctx, smileInk, -3 + eyeX, -14, 3, 1);
+  box(ctx, smileInk, eyeX, -15, 1, 1);
+  box(ctx, smileInk, 1 + eyeX, -14, 3, 1);
+  box(ctx, smileInk, 4 + eyeX, -16, 1, 2);
+
+  if (skin === 'winter') {
+    pixelOval(ctx, '#17171d', -17, -13, 34, 7, 2);
+    box(ctx, '#34343d', -14, -12, 28, 3);
+    box(ctx, '#50505a', -12, -12, 22, 1);
+    box(ctx, '#19191f', 8, -9, 8, 10);
+    box(ctx, '#34343d', 9, -8, 5, 7);
+    for (let fringe = 8; fringe < 16; fringe += 3) box(ctx, '#19191f', fringe, 0, 1, 3);
+  }
 
   const pawY = rising ? -11 : falling ? -13 : trapped || sliding ? -10 : -8;
   const pawSwing = Math.round(bounce * (trapped ? 2 : 1));
@@ -861,6 +885,56 @@ export function drawBunny(ctx, x, feetY, {
     box(ctx, '#6e6472', -12, -2, 16, 4);
     box(ctx, '#c6b8c4', -10, -2, 12, 2);
     star(ctx, 24, -34, '#f5d49c', 2);
+  }
+  ctx.restore();
+}
+
+export function drawDog(ctx, dog, feetY, time, petting = false) {
+  ctx.save();
+  ctx.translate(Math.round(dog.x), Math.round(feetY));
+  ctx.scale(dog.direction, 1);
+  const ink = '#24232a';
+  const fur = '#fff2db';
+  const shade = '#cabbab';
+  const step = petting ? 0 : Math.round(Math.sin(time * 12) * 2);
+  // White shaggy chest, black back and long floppy ears from the reference dog.
+  pixelOval(ctx, ink, -14, -21, 27, 19, 3);
+  pixelOval(ctx, fur, -11, -18, 22, 16, 3);
+  pixelOval(ctx, ink, -12, -21, 14, 10, 2);
+  for (const [x, offset] of [[-11, step], [5, -step]]) {
+    pixelOval(ctx, ink, x - 1, -7 + offset, 9, 8 - offset, 1);
+    box(ctx, fur, x, -6 + offset, 7, 6 - offset);
+    box(ctx, shade, x + 1, -2, 5, 2);
+  }
+  pixelOval(ctx, ink, -11, -35, 27, 23, 3);
+  pixelOval(ctx, '#3f3b40', -9, -34, 23, 18, 3);
+  pixelOval(ctx, ink, -15, -31, 8, 21, 2);
+  pixelOval(ctx, ink, 11, -31, 8, 21, 2);
+  box(ctx, '#555058', -14, -29, 2, 13);
+  box(ctx, '#555058', 15, -28, 2, 12);
+  pixelOval(ctx, fur, -6, -24, 20, 13, 2);
+  box(ctx, fur, 0, -32, 4, 11);
+  box(ctx, shade, -5, -17, 4, 5);
+  box(ctx, shade, 9, -17, 3, 5);
+  for (const x of [-6, 8]) {
+    pixelOval(ctx, '#100f14', x, -28, 5, 5, 1);
+    box(ctx, '#ffffff', x + 1, -28, 2, 2);
+  }
+  pixelOval(ctx, '#131218', 0, -23, 8, 5, 1);
+  box(ctx, '#72636a', 1, -23, 3, 1);
+  box(ctx, ink, 3, -18, 2, 3);
+  pixelOval(ctx, '#ed94ad', 2, -16, 6, 6, 1);
+  box(ctx, '#f8bcc8', 3, -16, 2, 3);
+  box(ctx, fur, -8, -13, 2, 4);
+  box(ctx, fur, 11, -14, 2, 4);
+  const wag = petting ? 2 : Math.round(Math.sin(time * 15) * 3);
+  pixelOval(ctx, ink, -20, -17 + wag, 9, 6, 2);
+  box(ctx, fur, -20, -17 + wag, 3, 3);
+  if (petting) {
+    box(ctx, '#ed94ad', -3, -45, 4, 3);
+    box(ctx, '#ed94ad', 3, -45, 4, 3);
+    box(ctx, '#ed94ad', -2, -42, 8, 3);
+    box(ctx, '#ed94ad', 0, -39, 4, 2);
   }
   ctx.restore();
 }
@@ -1051,6 +1125,12 @@ export function drawGame(ctx, game, options = {}) {
     if (chain && !chain.used) drawSatsuma(ctx, chain.x, y, visualTime, theme, reducedMotion);
   }
 
+  for (const platform of game.platforms) {
+    if (platform.dog && screenY(platform.y) >= -50 && screenY(platform.y) <= HEIGHT + 50) {
+      drawDog(ctx, platform.dog, screenY(platform.y), visualTime,
+        game.player.state === 'petting' && game.player.platformId === platform.id);
+    }
+  }
   const player = game.player;
   const bunnyY = screenY(player.y);
   const landingAge = game.lastLanding ? game.time - game.lastLanding.time : Infinity;
@@ -1069,7 +1149,7 @@ export function drawGame(ctx, game, options = {}) {
   }
   drawBunny(ctx, player.x, bunnyY, {
     theme,
-    pose: game.phase === 'ready' ? 'idle' : player.state === 'trapped' || player.state === 'sliding' ? player.state : player.vy > 0 ? 'jump' : 'fall',
+    pose: game.phase === 'ready' || player.state === 'petting' ? 'idle' : player.state === 'trapped' || player.state === 'sliding' ? player.state : player.vy > 0 ? 'jump' : 'fall',
     facing: player.vx < -8 ? -1 : 1,
     time: visualTime,
     impact: landingAge >= 0 && landingAge < 0.18 ? (1 - landingAge / 0.18) ** 2 : 0,
