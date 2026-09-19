@@ -940,7 +940,7 @@ export function drawBunny(ctx, x, feetY, {
   }
 
   // Ears are individually outlined instead of using an enlarged emoji or font glyph.
-  const earFlutter = Math.round(flutter * (rising || falling ? 2 : 1));
+  const earFlutter = Math.round(flutter * (rising || falling || trapped ? 2 : 1));
   const leftEarDrop = animated ? Math.round((1 + flutter) * (falling ? 2 : 1)) : 0;
   const rightEarDrop = animated ? Math.round((1 - flutter) * (rising ? 2 : 1)) : 0;
   pixelOval(ctx, outline, -11 - earShift + earFlutter, -50 + leftEarDrop, 9, 29 - leftEarDrop, 2);
@@ -1031,9 +1031,13 @@ export function drawBunny(ctx, x, feetY, {
     box(ctx, '#f4bac1', 11, -19, 5, 3);
   }
   box(ctx, pink, -1 + eyeX, -19, 3, 2);
-  // Two tiny upturned cheeks make a gentle bunny smile beneath the nose.
+  // A worried open mouth replaces the gentle smile while the bunny struggles.
   const smileInk = '#59404a';
-  if (mouthOpen > 0.12) {
+  if (trapped) {
+    pixelOval(ctx, smileInk, eyeX - 3, -17, 7, 6, 1);
+    box(ctx, '#ef9fa8', eyeX - 1, -13, 3, 1);
+    box(ctx, white, eyeX - 1, -17, 2, 1);
+  } else if (mouthOpen > 0.12) {
     const opening = Math.max(2, Math.round(4 * mouthOpen));
     pixelOval(ctx, smileInk, eyeX - 3, -17, 7, opening, 1);
     box(ctx, '#ef9fa8', eyeX - 1, -17 + opening - 1, 3, 1);
@@ -1064,8 +1068,8 @@ export function drawBunny(ctx, x, feetY, {
     for (let fringe = 8; fringe < 16; fringe += 3) box(ctx, '#19191f', fringe, 0, 1, 3);
   }
 
-  const pawY = rising ? -11 : falling ? -13 : trapped || sliding ? -10 : -8;
-  const pawSwing = Math.round(bounce * (trapped ? 2 : 1));
+  const pawY = trapped ? -16 : rising ? -11 : falling ? -13 : sliding ? -10 : -8;
+  const pawSwing = Math.round(bounce * (trapped ? 3 : 1));
   const pawSpread = falling ? 2 : 0;
   pixelOval(ctx, outline, -23 - pawSpread, pawY + pawSwing - 1, 8, 8, 1);
   box(ctx, shade, -21 - pawSpread, pawY + pawSwing + 1, 5, 5);
@@ -1085,7 +1089,11 @@ export function drawBunny(ctx, x, feetY, {
   if (trapped) {
     box(ctx, '#6e6472', -12, -2, 16, 4);
     box(ctx, '#c6b8c4', -10, -2, 12, 2);
-    star(ctx, 24, -34, '#f5d49c', 2);
+    const sweatDrop = animated ? Math.round((1 + flutter) * 2) : 0;
+    for (const [dropX, dropY] of [[-27, -30], [25, -36]]) {
+      box(ctx, '#d5f4ff', dropX + 1, dropY + sweatDrop, 1, 2);
+      pixelOval(ctx, '#87cee9', dropX, dropY + sweatDrop + 2, 3, 4, 1);
+    }
   }
   ctx.restore();
 }
@@ -1137,6 +1145,21 @@ export function drawDog(ctx, dog, feetY, time, petting = false, showHeart = true
     box(ctx, '#ed94ad', -2, -42, 8, 3);
     box(ctx, '#ed94ad', 0, -39, 4, 2);
   }
+  ctx.restore();
+}
+
+function drawTrappedScene(ctx, game, theme, reducedMotion) {
+  if (game.phase !== 'playing' || game.player.state !== 'trapped') return;
+  ctx.save();
+  box(ctx, 'rgba(10, 16, 27, 0.76)', 0, 0, WIDTH, HEIGHT);
+  // Leave room for the ears below the HUD and the tap instructions at 60% height.
+  drawBunny(ctx, WIDTH / 2, HEIGHT * 0.53, {
+    theme,
+    pose: 'trapped',
+    scale: 4.5,
+    time: game.time,
+    reducedMotion,
+  });
   ctx.restore();
 }
 
@@ -1408,5 +1431,6 @@ export function drawGame(ctx, game, options = {}) {
   ctx.fillRect(0, HEIGHT - 48, WIDTH, 48);
   drawJoystick(ctx, options.joystick, theme);
   drawPettingScene(ctx, game, options.petEffects, reducedMotion);
+  drawTrappedScene(ctx, game, theme, reducedMotion);
   ctx.restore();
 }
