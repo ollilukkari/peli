@@ -1,5 +1,5 @@
 // Change RELEASE for every deployment that changes an app file.
-const RELEASE = '2026-09-19.start-below-season-2';
+const RELEASE = '2026-09-19.install-controls-1';
 const ROOT = new URL('./', self.location.href);
 const CACHE_PREFIX = `ponppu:${encodeURIComponent(ROOT.pathname)}:`;
 const CACHE_NAME = `${CACHE_PREFIX}${RELEASE}`;

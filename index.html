@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="./style.css">
     <title>Pikku Pupun Pomputtelu Peli</title>
   </head>
-  <body data-theme="meadow">
+  <body data-theme="meadow" data-input-mode="keyboard">
 
     <div id="update-notice" class="update-notice" hidden><span id="update-message" role="status" aria-live="polite"></span><button id="update" hidden disabled>Päivitä peli</button></div>
 
@@ -20,10 +20,10 @@
         <div class="howto">
           <h2 class="guide-title">Ohjaus</h2>
           <div class="instruction"><span class="step">01</span><p>Pupu pomppii itse.<br><strong>Sinä valitset suunnan.</strong></p></div>
-          <div class="instruction"><span class="step">02</span><p>Puhelimella vedä sormea<br><strong>ruudun alaosassa.</strong></p></div>
-          <div class="instruction"><span class="step">03</span><p>Tietokoneella käytä<br><kbd>←</kbd> <kbd>→</kbd> <span>nuolinäppäimiä.</span></p></div>
+          <div class="instruction" data-controls="touch"><span class="step">02</span><p>Puhelimella vedä sormea<br><strong>ruudun alaosassa.</strong></p></div>
+          <div class="instruction" data-controls="keyboard"><span class="step">02</span><p>Tietokoneella käytä<br><kbd>←</kbd> <kbd>→</kbd> <span>nuolinäppäimiä.</span></p></div>
         </div>
-        <p class="desktop-hint"><kbd>Esc</kbd> tauko<br><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> tai <kbd>välilyönti</kbd> tökkäisy ansassa</p>
+        <p class="desktop-hint" data-controls="keyboard"><kbd>Esc</kbd> tauko<br><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> tai <kbd>välilyönti</kbd> tökkäisy ansassa</p>
       </aside>
 
       <section class="game-column" aria-label="Pikku Pupun Pomputtelu Peli">
@@ -61,7 +61,7 @@
               <p class="record-line">OMA ENNÄTYS <strong><span class="best-score">0</span> m</strong></p>
               <div class="menu-tools">
                 <button class="help-button" id="help-open" aria-haspopup="dialog" aria-controls="help-dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v14M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1M12 6c3-2 6-2 9-1v14c-3-1-6-1-9 1M6 8h3M6 11h3M15 8h3M15 11h3"/></svg>Pelin ohjeet</button>
-                <button class="quiet-button" id="install" hidden>Asenna peli <span aria-hidden="true">↗</span></button>
+                <button class="install-button" id="install" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>Asenna peli</button>
               </div>
             </div>
           </div>
@@ -77,8 +77,8 @@
           <div class="overlay dialog-overlay" id="over-panel" hidden>
             <div class="dialog-card"><span class="pixel-tag" id="over-tag">HYVÄ POMPPU!</span><h2>RIP</h2><div class="result"><strong id="final-score">0</strong><span>METRIÄ</span></div><p>OMA ENNÄTYS <strong><span class="best-score">0</span> m</strong></p><button class="primary-button" id="restart">Uusi peli <span aria-hidden="true">↗</span></button><button class="text-button" id="change-world">Vaihda maailmaa</button></div>
           </div>
-          <div id="dog-notice" class="dog-notice" hidden><strong>Paijaa otusta</strong><svg class="gesture-hint gesture-swipe" viewBox="0 0 128 56" aria-hidden="true"><path class="gesture-track" d="M12 24H116M20 16 12 24 20 32M108 16 116 24 108 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><g class="gesture-finger"><path d="M52 47 43 33Q41 29 44 27Q46 26 49 29L53 33V12Q53 8 57 8Q61 8 61 12V26Q64 22 68 26Q72 23 75 28Q79 26 81 31V39Q81 45 76 50H57Z" fill="#fff8ec" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></g></svg><span>Pyyhkäise vasemmalle ja oikealle</span><span id="dog-count">0/10</span></div>
-          <div id="trap-notice" class="trap-notice" hidden><strong>Olet jumissa, naputa!!</strong><svg class="gesture-hint gesture-tap" viewBox="0 0 128 56" aria-hidden="true"><ellipse class="gesture-ripple" cx="57" cy="14" rx="12" ry="8" fill="none" stroke="currentColor" stroke-width="2"/><g class="gesture-finger"><path d="M52 47 43 33Q41 29 44 27Q46 26 49 29L53 33V12Q53 8 57 8Q61 8 61 12V26Q64 22 68 26Q72 23 75 28Q79 26 81 31V39Q81 45 76 50H57Z" fill="#fff8ec" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></g></svg><span class="trap-dots" id="trap-dots" aria-hidden="true">○ ○ ○ ○ ○ ○ ○ ○</span></div>
+          <div id="dog-notice" class="dog-notice" hidden><strong>Paijaa otusta</strong><svg data-controls="touch" class="gesture-hint gesture-swipe" viewBox="0 0 128 56" aria-hidden="true"><path class="gesture-track" d="M12 24H116M20 16 12 24 20 32M108 16 116 24 108 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><g class="gesture-finger"><path d="M52 47 43 33Q41 29 44 27Q46 26 49 29L53 33V12Q53 8 57 8Q61 8 61 12V26Q64 22 68 26Q72 23 75 28Q79 26 81 31V39Q81 45 76 50H57Z" fill="#fff8ec" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></g></svg><span data-controls="touch">Pyyhkäise vasemmalle ja oikealle</span><span data-controls="keyboard">Paina ← tai → kymmenen kertaa<br>tai vedä hiirellä edestakaisin</span><span id="dog-count">0/10</span></div>
+          <div id="trap-notice" class="trap-notice" hidden><strong data-controls="touch">Olet jumissa, naputa!!</strong><strong data-controls="keyboard">Olet jumissa!</strong><span data-controls="keyboard">Paina nuolta tai välilyöntiä 8 kertaa</span><svg data-controls="touch" class="gesture-hint gesture-tap" viewBox="0 0 128 56" aria-hidden="true"><ellipse class="gesture-ripple" cx="57" cy="14" rx="12" ry="8" fill="none" stroke="currentColor" stroke-width="2"/><g class="gesture-finger"><path d="M52 47 43 33Q41 29 44 27Q46 26 49 29L53 33V12Q53 8 57 8Q61 8 61 12V26Q64 22 68 26Q72 23 75 28Q79 26 81 31V39Q81 45 76 50H57Z" fill="#fff8ec" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></g></svg><span class="trap-dots" id="trap-dots" aria-hidden="true">○ ○ ○ ○ ○ ○ ○ ○</span></div>
           <div class="bottom-line" aria-hidden="true"></div>
         </div>
         <p id="storage-notice" class="storage-notice" hidden>Selain ei salli tallennusta. Ennätys ja asetukset säilyvät vain tämän käynnin ajan.</p>
@@ -86,10 +86,10 @@
 
       <aside class="field-guide">
         <h2 class="guide-title">Esineet</h2>
-        <article class="guide-item"><div><h3>Koira</h3><p>Tepastelee tasolla 1 000–2 000 metrin välein. Viereen laskeuduttuasi silitä 10 pyyhkäisyä. Hiirellä pidä painike pohjassa ja vedä edestakaisin.</p></div><span class="item-badge">10×</span></article>
+        <article class="guide-item"><div><h3>Koira</h3><p>Tepastelee tasolla 1 000–2 000 metrin välein. <span data-controls="touch">Viereen laskeuduttuasi paijaa 10 pyyhkäisyllä.</span><span data-controls="keyboard">Paijaa painamalla ← tai → kymmenen erillistä kertaa. Voit myös pitää hiiren painikkeen pohjassa ja vetää edestakaisin.</span></p></div><span class="item-badge">10×</span></article>
         <article class="guide-item"><svg class="item-art" viewBox="0 0 48 48" aria-hidden="true"><path fill="#52616a" d="M3 12h6v5h8v6h16v-7h6v5h6v10H12v-6H7v-6H3z"/><path fill="#fffbed" d="M7 14h4v5h8v6h14v-5h7v8H14v-5H9v-5H7z"/><path fill="#e0a13b" d="M40 23h7v4h-7z"/><path fill="#343b43" d="M35 21h2v2h-2z"/></svg><div><h3>Linnut</h3><p>Kesällä lokkeja, ruskassa sorsia ja talvella harakoita. Osuma kimmottaa ylös ja sivulle.</p></div><span class="item-badge">↗</span></article>
         <article class="guide-item"><svg class="item-art" viewBox="0 0 48 48" aria-hidden="true"><path fill="#558452" d="M23 12V5h5v7h9V6h-9v6z"/><path fill="#663c32" d="M14 12h20v4h5v7h4v14h-5v5H12v-5H7V22h4v-6h3z"/><path fill="#fba047" d="M15 16h18v4h5v16h-6v4H15v-4h-5V23h5z"/><path fill="#ffcf72" d="M16 20h7v5h-7z"/></svg><div><h3>Välipalat</h3><p>Kesällä mansikka, syksyllä puolukat, talvella satsuma.<br>Kolminkertainen hyppy.</p></div><span class="item-badge">3×</span></article>
-        <article class="guide-item"><svg class="item-art" viewBox="0 0 48 48" aria-hidden="true"><path fill="#72586b" d="M6 22h5v10h26V22h5v17H6zM12 14h5v11h-5zm9 3h6v11h-6zm10-3h5v11h-5z"/><path fill="#b69ba0" d="M10 34h28v4H10z"/></svg><div><h3>Ansaloukku</h3><p>Jalka jumissa?<br>Kahdeksan napautusta auttaa.</p></div><span class="item-badge">8×</span></article>
+        <article class="guide-item"><svg class="item-art" viewBox="0 0 48 48" aria-hidden="true"><path fill="#72586b" d="M6 22h5v10h26V22h5v17H6zM12 14h5v11h-5zm9 3h6v11h-6zm10-3h5v11h-5z"/><path fill="#b69ba0" d="M10 34h28v4H10z"/></svg><div><h3>Ansaloukku</h3><p>Jalka jumissa?<br><span data-controls="touch">Kahdeksan napautusta auttaa.</span><span data-controls="keyboard">Paina nuolta tai välilyöntiä kahdeksan kertaa.</span></p></div><span class="item-badge">8×</span></article>
         <article class="guide-item"><svg class="item-art" viewBox="0 0 48 48" aria-hidden="true"><path fill="#674943" d="M22 7h7v9h5v8h6v7h4v9H5v-9h5v-7h6v-8h6z"/><path fill="#a27460" d="M23 12h4v7h-4zm-6 12h14v4H17zM10 33h26v3H10z"/><path fill="#fff5df" d="M19 29h4v4h-4zm10 0h4v4h-4z"/></svg><div><h3>Liukas yllätys</h3><p>Mitä kovempi vauhti,<br>sitä pidempi liuku.</p></div><span class="item-badge">↝</span></article>
       </aside>
     </main>

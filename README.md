@@ -23,7 +23,7 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 - **Ansa:** kahdeksan uutta napautusta vapauttaa pupun. Tietokoneella paina mitä tahansa nuolinäppäintä tai välilyöntiä kahdeksan erillistä kertaa. Näppäimen pitäminen pohjassa ei ole useita tökkäisyjä.
 - **Kakka:** liukastut tulosuunnassa; suurempi sivuttaisnopeus aiheuttaa pidemmän ja nopeamman liu'un. Esineet aktivoituvat laskeuduttaessa niiden päälle.
 - **Linnut:** kesällä lokkeja, syksyllä sorsia ja talvella harakoita. Sik-sak lentävään lintuun osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise välipalaketjua.
-- **Koira:** tepastelee tasolla 1 000–2 000 metrin välein. Viereen laskeutuminen pysäyttää pelin siksi aikaa, että silität koiraa 10 pyyhkäisyllä. Koira näkyy suurennettuna himmennetyn pelin edessä, ja jokainen pyyhkäisy synnyttää sydämiä. Hiirellä pidä painike pohjassa ja vedä edestakaisin.
+- **Koira:** tepastelee tasolla 1 000–2 000 metrin välein. Viereen laskeutuminen pysäyttää pelin siksi aikaa, että silität koiraa 10 pyyhkäisyllä. Koira näkyy suurennettuna himmennetyn pelin edessä, ja jokainen pyyhkäisy synnyttää sydämiä. Tietokoneella voit paijata myös kymmenellä erillisellä vasemman tai oikean nuolinäppäimen painalluksella. Pohjassa pitäminen lasketaan vain kerran. Hiirellä pidä painike pohjassa ja vedä edestakaisin.
 - **Tauko:** paina taukopainiketta tai Escapea. Taustalle siirtyminen keskeyttää kierroksen.
 
 Alareunaan putoaminen päättää kierroksen kolmisäveliseen, noin sekunnin mittaiseen ”di-dy-dyy”-ääniefektiin. Pisteet mittaavat edettyä matkaa. Tasojen leveys pienenee aina 10 % edellisestä leveydestä 250 metrin välein (100 %, 90 %, 81 %, …), vähintään 70 pikseliin. Kavennus määräytyy tason korkeudesta; jo luodut tasot eivät kutistu kesken hypyn.
@@ -34,7 +34,7 @@ Isoja taustakoristeita näkyy enintään noin joka kolmannella tasolla, yksi ker
 
 Kesän oletusmusiikki on **Summer Platformer**, Ruskan **Kalm Mjörk** ja Talven **Frozen Minor — Reduced Low End**. Musiikki vaihtuu jo päävalikossa maailmaa valittaessa lyhyellä ulos- ja sisäänhäivytyksellä ja jatkuu kierroksen alkaessa. Selain sallii äänen ensimmäisen painalluksen jälkeen. Tauko pysäyttää musiikin samaan kohtaan. Musiikki jatkuu RIP-ruudussa, uusintakierroksella ja valikkoon palatessa; kappale vaihtuu ja alkaa alusta vasta vuodenaikaa vaihdettaessa. Taukopainikkeen viereinen nuottipainike (**Music off / Music on**) mykistää vain musiikin. Ääniefektipainike mykistää vain tehosteäänet. Musiikin ja tehosteiden asetukset toimivat toisistaan riippumatta ja tallentuvat selaimeen. Alkuperäinen Kvltist-maailma säilyy koodissa mutta on piilotettu valikosta; sen aiempi tallennettu valinta avaa Talven.
 
-Aloitusvalikon ennätyksen alla oleva **Pelin ohjeet** -painike avaa samat ohjeet, jotka näkyvät tietokoneella pelin sivuilla. Ohjeita voi vierittää myös pienellä puhelimella ja sulkea Sulje-painikkeella tai Escapella.
+Aloitusvalikon ennätyksen alla oleva **Pelin ohjeet** -painike avaa samat ohjeet, jotka näkyvät tietokoneella pelin sivuilla. Ohjeissa näytetään vain laitteen ensisijaiselle osoittimelle sopivat kosketus- tai näppäimistö- ja hiiriohjeet. Ohjeita voi vierittää myös pienellä puhelimella ja sulkea Sulje-painikkeella tai Escapella.
 
 ## Offline ja asennus
 

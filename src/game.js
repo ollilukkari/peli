@@ -368,7 +368,7 @@ function land(game, platform, dt) {
     game.trapTaps = 0;
     emit(game, 'trap');
   } else if (item.type === 'poop') {
-    game.bubble = 'Hyi kakkaa';
+    game.bubble = 'Hyi kakkaa!';
     game.bubbleUntil = game.time + 1.8;
     player.state = 'sliding';
     player.platformId = platform.id;
