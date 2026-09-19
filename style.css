@@ -122,4 +122,5 @@ body[data-update-ready="true"]{--update-space:52px}
 /* Narrow landscape frames still need complete, reachable round controls. */
 .dialog-overlay{grid-template-columns:minmax(0,1fr)}
 .dialog-card{min-width:0}
+.version-label{align-self:center;font:600 8px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.4px;opacity:.75}
 @media(max-height:600px) and (orientation:landscape){.dialog-overlay{padding:10px}.dialog-card{padding:14px 10px}.dialog-card h2{font-size:18px;margin:7px 0 12px}.dialog-card p{margin:10px 0 15px;font-size:9px}.dialog-card .primary-button{padding:8px 6px;gap:5px;font-size:10px}.dialog-card .text-button{margin-top:12px;font-size:9px}.result{margin-top:9px}.result strong{font-size:36px;letter-spacing:-2px}.result>span{font-size:8px;letter-spacing:2px}#resume{font-size:12px}}

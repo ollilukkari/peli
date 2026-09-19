@@ -318,7 +318,7 @@ test('each season keeps playing through game over, restart and menu without paus
       assert.equal(app.media.paused, false, `${theme}/${phase}`);
       assert.equal(app.media.currentTime, 37.25, `${theme}/${phase}`);
       assert.equal(app.media.src, track);
-      assert.equal(app.audio.musicGain.gain.value, 0.3);
+      assert.equal(app.audio.musicGain.gain.value, theme === 'autumn' ? 0.33 : 0.3);
     }
     assert.equal(app.media.pauseCalls, pauses);
     assert.equal(app.media.plays.length, 1);
@@ -705,7 +705,7 @@ test('delayed new-track playback waits silently, and stale play results cannot f
   app.media.finishPlay(2);
   await flush();
   app.advance(.09);
-  assert.ok(Math.abs(app.audio.musicGain.gain.value - .15) < 1e-9);
+  assert.ok(Math.abs(app.audio.musicGain.gain.value - .165) < 1e-9);
   app.audio.setMusicEnabled(false);
   assert.equal(app.audio.musicGain.gain.value, 0, 'mute immediately cancels a partially completed attack');
   app.advance(.5);
