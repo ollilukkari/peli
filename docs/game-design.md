@@ -48,7 +48,7 @@ Pelin päättyessä otsikko on ”RIP” ja uusintapainikkeen teksti ”Ponpi li
 
 Kesän tasojen takana kasvaa saniaisia. Ruskassa taustakoristeina ovat ruskaiset pensaat ja kurpitsat; Talvessa lumiukot ja lämpimästi hohtavat lumilyhdyt. Koristeet ovat hillittyjä, piirtyvät kaikkien tasojen ja peliesineiden taakse eivätkä osallistu törmäyksiin.
 
-Taukovalikon otsikko on ”Pause”. ”Jatka pomppimista” käyttää suurempaa fonttia, ja valikkoon palataan ”Palaa päävalikkoon” -painikkeella.
+Taukovalikon otsikko on ”Tauko”. ”Jatka pomppimista” käyttää suurempaa fonttia, ja valikkoon palataan ”Palaa päävalikkoon” -painikkeella.
 
 ## Tallennus ja jakelu
 
