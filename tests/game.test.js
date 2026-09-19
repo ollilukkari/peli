@@ -83,7 +83,7 @@ test('satsuma launch gives three times normal jump height', () => {
   const normal = peak(null);
   const satsuma = peak('satsuma');
   assert.ok(Math.abs(satsuma.height / normal.height - 3) < 0.002);
-  assert.ok(['Hyvää!', 'Nam!', 'Njömps!', 'Njömpsis!'].includes(satsuma.game.bubble));
+  assert.ok(['Hyvää!', 'Nam!', 'Njömps!'].includes(satsuma.game.bubble));
   assert.equal(satsuma.game.platforms[0].item.used, true);
 });
 

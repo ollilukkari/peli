@@ -20,7 +20,7 @@ Kaikki kolme esinettä ovat mukana ensimmäisessä versiossa. Ne aktivoituvat va
 
 | Esine | Vaikutus |
 | --- | --- |
-| Satsuma | Kolminkertainen hyppykorkeus ja jokin puhekuplista: ”Hyvää!”, ”Nam!”, ”Njömps!”, ”Njömpsis!”. |
+| Satsuma | Kolminkertainen hyppykorkeus ja jokin puhekuplista: ”Hyvää!”, ”Nam!”, ”Njömps!”. |
 | Ansa | Pupu jää tason mukana liikkuvaan ansaan. Neljä erillistä napautusta, nuolinäppäimen tai välilyönnin painallusta vapauttaa sen ja käynnistää pompun. Pohjassa pitäminen ei tuota lisätökkäisyjä. |
 | Kakka | Pupu sanoo ”Hyi kakkaa”. Normaali pomppu jää hetkeksi pois. Pupu liukuu tulosuuntaan; nopeus ja kesto riippuvat sivuttaisnopeudesta osumahetkellä. |
 

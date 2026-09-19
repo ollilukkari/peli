@@ -29,7 +29,7 @@ export const PHYSICS = Object.freeze({
   gullCooldown: 0.65,
 });
 
-const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!', 'Njömpsis!'];
+const SAYINGS = ['Hyvää!', 'Nam!', 'Njömps!'];
 const NORMAL_HEIGHT = PHYSICS.jumpSpeed ** 2 / (2 * PHYSICS.gravity);
 const PLATFORM_WIDTH_SCALE = 0.9;
 const PLATFORM_NARROWING_METERS = 250;

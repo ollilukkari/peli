@@ -139,5 +139,3 @@ body[data-update-ready="true"]{--update-space:52px}
 @keyframes gesture-tap{0%,65%,100%{transform:translateY(-4px)}30%,42%{transform:translateY(3px)}}
 @keyframes gesture-ripple{0%,25%{opacity:0;transform:scale(.6)}35%{opacity:.65;transform:scale(.8)}75%,100%{opacity:0;transform:scale(1.45)}}
 @media(prefers-reduced-motion:reduce){.gesture-hint *{animation:none!important}.gesture-ripple{opacity:.45}}
-
-.menu #start{position:absolute;left:8%;bottom:10px;width:84%;pointer-events:auto}
