@@ -56,6 +56,77 @@ test('trampolines use the same combo bell as fruit at each combo level', async (
   }
 });
 
+test('winter combos use two muted power-chord hits with bounded gain, capped levels and full cleanup', async () => {
+  const app = application({ musicEnabled: false });
+  await app.start('winter', 'playing');
+  const now = app.context.currentTime;
+  const pitches = [];
+  const volumes = [];
+  for (let level = 3; level <= 11; level++) {
+    const before = app.context.oscillators.length;
+    app.audio.play('satsuma', 'winter', level);
+    assert.equal(app.context.oscillators.length, before + 2);
+    const [root, fifth] = app.context.oscillators.slice(-2);
+    assert.equal(root.type, 'sawtooth');
+    assert.equal(fifth.type, 'sawtooth');
+    assert.equal(root.frequency.events.length, 1, 'no bounce-like pitch sweep');
+    assert.equal(fifth.frequency.events[0][1], root.frequency.events[0][1] * 1.5);
+    assert.ok(root.frequency.events[0][1] >= 110 && root.frequency.events[0][1] < 165);
+    assert.deepEqual(root.stops, [now + .295]);
+    const distortion = root.connections[0];
+    assert.equal(fifth.connections[0], distortion);
+    assert.equal(distortion.oversample, '2x');
+    assert.ok([...distortion.curve].every(value => Math.abs(value) <= 1));
+    const filter = distortion.connections[0];
+    assert.equal(filter.type, 'lowpass');
+    assert.ok(filter.frequency.events[0][1] <= 1250, 'dark tone without a bright top end');
+    const gain = filter.connections[0];
+    const attacks = gain.gain.events.filter(([type]) => type === 'linear');
+    const tails = gain.gain.events.filter(([type, value]) => type === 'exponential' && value === .0001);
+    assert.equal(attacks.length, 2);
+    assert.ok(tails[0][2] < attacks[1][2], 'separated muted hits');
+    assert.ok(attacks[0][1] <= .0481);
+    assert.equal(gain.connections[0], app.audio.effectsGain);
+    pitches.push(root.frequency.events[0][1]);
+    volumes.push(attacks[0][1]);
+    app.audio.play('trampoline', 'winter', level);
+    const [trampolineRoot, trampolineFifth] = app.context.oscillators.slice(-2);
+    assert.deepEqual(trampolineRoot.frequency.events, root.frequency.events);
+    assert.deepEqual(trampolineFifth.frequency.events, fifth.frequency.events);
+    root.onended();
+    assert.equal(distortion.disconnected, false, 'shared nodes survive until both voices end');
+    fifth.onended();
+    for (const node of [root, fifth, distortion, filter, gain]) assert.equal(node.disconnected, true);
+  }
+  for (let index = 1; index < 8; index++) {
+    assert.ok(pitches[index] > pitches[index - 1]);
+    assert.ok(volumes[index] > volumes[index - 1]);
+  }
+  assert.equal(pitches[7], pitches[8]);
+  assert.equal(volumes[7], volumes[8]);
+  const count = app.context.oscillators.length;
+  app.audio.setEnabled(false);
+  app.audio.play('satsuma', 'winter', 10);
+  assert.equal(app.context.oscillators.length, count);
+});
+
+test('winter non-combo pickups and other worlds retain their original sounds', async () => {
+  const app = application({ musicEnabled: false });
+  await app.start('winter', 'playing');
+  const now = app.context.currentTime;
+  for (const level of [0, 1, 2]) {
+    app.audio.play('satsuma', 'winter', level);
+    const voice = app.context.oscillators.at(-1);
+    assert.equal(voice.type, 'sawtooth');
+    assert.deepEqual(voice.frequency.events, [['set', 530 * .55, now], ['exponential', 1250 * .55, now + .24]]);
+  }
+  for (const [theme, pitch] of [['meadow', 1], ['autumn', 1], ['kvlt', .55]]) {
+    app.audio.play('satsuma', theme, 3);
+    const voice = app.context.oscillators.at(-1);
+    assert.deepEqual(voice.frequency.events, [['set', 660 * pitch, now], ['exponential', 990 * pitch, now + .28]]);
+  }
+});
+
 function deferred() {
   let resolve;
   let reject;
@@ -230,6 +301,7 @@ function application({ enabled = true, musicEnabled = true, initialState = 'runn
       this.buffers.push(buffer);
       return buffer;
     }
+    createWaveShaper() { return new Node(); }
     createBiquadFilter() {
       const filter = new Node();
       filter.frequency = new Parameter();

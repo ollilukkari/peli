@@ -8,6 +8,8 @@ const MUSIC_VOLUME = .3;
 const AUTUMN_MUSIC_VOLUME = MUSIC_VOLUME * 1.1;
 const FADE_OUT = .12;
 const FADE_IN = .18;
+const WINTER_COMBO_DISTORTION = Float32Array.from({ length: 129 }, (_, index) =>
+  Math.tanh((index / 64 - 1) * 3) / Math.tanh(3));
 
 export class GameAudio {
   constructor(enabled = true, musicEnabled = true) {
@@ -315,6 +317,46 @@ export class GameAudio {
       && ['ready', 'playing', 'over'].includes(this.phase) && contextAvailable);
   }
 
+  playWinterCombo(level) {
+    const context = this.context;
+    const start = context.currentTime;
+    const root = 110 * 2 ** (level / 12);
+    const distortion = context.createWaveShaper();
+    distortion.curve = WINTER_COMBO_DISTORTION;
+    distortion.oversample = '2x';
+    const filter = context.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(900 + level * 50, start);
+    filter.Q.setValueAtTime(.6, start);
+    const gain = context.createGain();
+    const volume = .034 + level * .002;
+    // Two palm-muted power-chord hits: fixed low notes, no bright upward sweep.
+    for (const [offset, length, strength] of [[0, .07, 1], [.10, .18, .9]]) {
+      const hit = start + offset;
+      gain.gain.setValueAtTime(0, hit);
+      gain.gain.linearRampToValueAtTime(volume * strength, hit + .003);
+      gain.gain.exponentialRampToValueAtTime(volume * strength * .2, hit + length * .4);
+      gain.gain.exponentialRampToValueAtTime(.0001, hit + length);
+    }
+    distortion.connect(filter).connect(gain).connect(this.effectsGain);
+    const voices = [1, 1.5].map((ratio) => {
+      const voice = context.createOscillator();
+      voice.type = 'sawtooth';
+      voice.frequency.setValueAtTime(root * ratio, start);
+      voice.connect(distortion);
+      voice.start(start);
+      voice.stop(start + .295);
+      return voice;
+    });
+    let ended = 0;
+    for (const voice of voices) voice.onended = () => {
+      voice.disconnect();
+      if (++ended === voices.length) {
+        distortion.disconnect(); filter.disconnect(); gain.disconnect();
+      }
+    };
+  }
+
   play(event, theme = 'meadow', combo = 0) {
     if (!this.enabled || !this.context || this.context.state !== 'running') return;
     const notes = {
@@ -327,6 +369,10 @@ export class GameAudio {
     if (!note) return;
     let [from, to, duration] = note;
     const comboLevel = (event === 'satsuma' || event === 'trampoline') && combo >= 3 ? Math.min(10, combo) - 3 : null;
+    if (theme === 'winter' && comboLevel !== null) {
+      this.playWinterCombo(comboLevel);
+      return;
+    }
     if (comboLevel !== null) {
       // One voice per pickup: a rising, softer bell replaces the ordinary bite.
       from = 660 * 2 ** (comboLevel / 12);
