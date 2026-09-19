@@ -11,6 +11,7 @@ const renderSource = readFileSync(new URL('../src/render.js', import.meta.url), 
 function renderer() {
   return vm.runInNewContext(`${renderSource}\n({
     drawGame, drawBackground, drawCachedPlatform, drawPlatformScenery,
+    drawComboGlow, drawComboBurst, drawSpawnedFruit,
     platformHash, palettes, cacheFor: (ctx) => artworkCaches.get(ctx),
   });`, { PHYSICS }, { filename: 'src/render.js' });
 }
@@ -259,3 +260,53 @@ for (const theme of ['meadow', 'autumn', 'winter', 'kvlt']) {
     assert.deepEqual(game, original);
   });
 }
+
+test('combo glow scales from 10 to 100 percent, caps at ten, cycles hue and stops with the combo', () => {
+  const render = renderer();
+  const game = createGame(7);
+  const paint = (streak, time, reduced = false) => {
+    const { ctx } = recordingCanvas();
+    game.satsumaStreak = streak;
+    game.time = time;
+    render.drawComboGlow(ctx, game, 300, reduced, 0);
+    return ctx.calls.filter((call) => call.name === 'fillRect');
+  };
+  assert.equal(paint(0, 0).length, 0);
+  for (let streak = 1; streak <= 12; streak++) {
+    assert.equal(paint(streak, 0)[0].alpha, Math.min(streak, 10) / 10);
+  }
+  assert.notEqual(paint(10, 0)[0].fillStyle, paint(10, 1)[0].fillStyle);
+  assert.deepEqual(paint(10, 1, true), paint(10, 2, true));
+});
+
+test('combo splash starts at one and contains only the growing number and exclamation mark', () => {
+  const render = renderer();
+  const game = createGame(7);
+  game.lastLanding = { type: 'satsuma', time: 0 };
+  for (const streak of [1, 2, 3, 10, 123]) {
+    game.satsumaStreak = streak;
+    const { ctx } = recordingCanvas();
+    render.drawComboBurst(ctx, game, 'meadow', false);
+    const labels = ctx.calls.filter((call) => call.name === 'fillText');
+    assert.deepEqual(labels.map((call) => call.args[0]), [`${streak}!`, `${streak}!`]);
+    assert.equal(ctx.font, 'bold 48px monospace');
+    assert.ok(ctx.calls.filter((call) => call.name === 'translate').every((call) => call.args.every(Number.isFinite)));
+  }
+});
+
+test('new visible fruit pops in, settles and uses only a fade with reduced motion', () => {
+  const render = renderer();
+  const item = { type: 'satsuma', x: 180, spawnedAt: 2 };
+  const paint = (age, reduced = false) => {
+    const { ctx } = recordingCanvas();
+    render.drawSpawnedFruit(ctx, item, 300, 2 + age, 4, 'meadow', reduced);
+    return ctx.calls;
+  };
+  const early = paint(0.03);
+  assert.ok(early.some((call) => call.name === 'scale' && call.args[0] < 1));
+  assert.ok(early.filter((call) => call.name === 'fillRect').every((call) => call.alpha < 0.5));
+  assert.ok(!paint(0.4).some((call) => call.name === 'scale'));
+  assert.ok(!paint(0.03, true).some((call) => call.name === 'scale'));
+  delete item.spawnedAt;
+  assert.ok(!paint(0).some((call) => call.name === 'scale'));
+});

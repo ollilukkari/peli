@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CREATURE_INTERVALS, PHYSICS, createGame, startGame, stepGame, strokeDog, pauseGame, resumeGame,
+  CREATURE_INTERVALS, PHYSICS, createGame, startGame, stepGame, tapDog, pauseGame, resumeGame,
 } from '../src/game.js';
 
 const DT = 1 / 120;
@@ -129,16 +129,16 @@ test('hamster petting freezes the world, pauses safely and grants a green boost 
   stepGame(game, 60, 1);
   assert.deepEqual(game, frozen);
   pauseGame(game);
-  assert.equal(strokeDog(game), false);
+  assert.equal(tapDog(game), false);
   resumeGame(game);
-  for (let stroke = 0; stroke < 9; stroke++) assert.equal(strokeDog(game), true);
+  for (let stroke = 0; stroke < 9; stroke++) assert.equal(tapDog(game), true);
   assert.equal(game.player.state, 'petting');
-  assert.equal(strokeDog(game), true);
+  assert.equal(tapDog(game), true);
   assert.equal(game.player.state, 'pet-boost');
   assert.equal(platform.dog.petted, true);
   assert.equal(platform.dog.kind, 'zab');
   assert.equal(game.player.vy, 0);
-  assert.equal(strokeDog(game), false);
+  assert.equal(tapDog(game), false);
   stepGame(game, PHYSICS.petBoostChargeDuration + PHYSICS.petBoostLaunchDuration);
   assert.equal(game.player.state, 'air');
   assert.equal(game.player.y, 3900);

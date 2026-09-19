@@ -19,12 +19,13 @@ export const PHYSICS = Object.freeze({
   scrollSpeed: 33.8,
   maxScrollSpeed: 60.84,
   followHeight: HEIGHT * 0.62,
-  trapTaps: 8,
-  dogStrokes: 10,
+  trapTaps: 10,
+  dogTaps: 10,
   dogNearDistance: 38,
   petBoostChargeDuration: 0.25,
   petBoostLaunchDuration: 0.9375,
   petBoostRiseMeters: 300,
+  dogBoostRiseMeters: 100,
   slipMultiplier: 1.2,
   slipDeceleration: 400 / 1.5,
   zeroSlipDuration: 0.22,
@@ -146,6 +147,7 @@ function generatePlatforms(game, targetY = game.camera + HEIGHT + NORMAL_HEIGHT 
       game.creatureGenerationIndex += 1;
       game.nextCreatureY = y + creatureInterval(game);
     }
+    if (!dog) markFruitSpawn(game, { y }, item);
     insertPlatform(game, {
       dog,
       id,
@@ -158,6 +160,25 @@ function generatePlatforms(game, targetY = game.camera + HEIGHT + NORMAL_HEIGHT 
     game.generatedSafeWidth = geometry.safeWidth;
     game.generatedSatsumaX = item?.type === 'satsuma' ? item.x : null;
   }
+}
+
+function spawnComboCreature(game) {
+  // Keep the entire encounter above the viewport and let normal scrolling reveal it.
+  const minimumY = game.camera + HEIGHT + 60;
+  const available = () => game.platforms.find((entry) => entry.y >= minimumY && !entry.dog
+    && (!entry.item || entry.item.used) && (!entry.chainSatsuma || entry.chainSatsuma.used));
+  let platform = available();
+  while (!platform) {
+    generatePlatforms(game, Math.max(minimumY + NORMAL_HEIGHT * 3, game.generatedTopY + 120));
+    platform = available();
+  }
+  platform.dog = { kind: 'zab', x: platform.safeX, direction: 1, petted: false };
+}
+
+function markFruitSpawn(game, platform, item) {
+  // Fruit art extends 48 px above its ledge. Only newly created, visible fruit pops in.
+  if (item?.type === 'satsuma' && platform.y >= game.camera - 48
+      && platform.y <= game.camera + HEIGHT) item.spawnedAt = game.time;
 }
 
 function dogInterval(game) {
@@ -189,24 +210,21 @@ function moveDogs(game) {
   }
 }
 
-export function strokeDog(game) {
+export function tapDog(game) {
   if (game.phase !== 'playing' || game.player.state !== 'petting') return false;
-  game.dogStrokes += 1;
-  if (game.dogStrokes === PHYSICS.dogStrokes) {
+  game.dogTaps += 1;
+  if (game.dogTaps === PHYSICS.dogTaps) {
     const platform = game.platforms.find((entry) => entry.id === game.player.platformId);
     platform.dog.petted = true;
-    if (platform.dog.kind === 'zab') startPetBoost(game, platform);
-    else {
-      game.gullInvulnerableUntil = game.time + PHYSICS.gullCooldown;
-      bounce(game, 1, 'release');
-    }
+    startPetBoost(game, platform);
   }
   return true;
 }
 
 function startPetBoost(game, source) {
   const player = game.player;
-  const targetY = player.y + PHYSICS.petBoostRiseMeters * PHYSICS.pixelsPerMeter;
+  const riseMeters = source.dog.kind === 'zab' ? PHYSICS.petBoostRiseMeters : PHYSICS.dogBoostRiseMeters;
+  const targetY = player.y + riseMeters * PHYSICS.pixelsPerMeter;
   generatePlatforms(game, targetY + HEIGHT + NORMAL_HEIGHT * 3);
   // Match the next route ledge's safe patch so a normal jump can continue upward.
   const targetX = game.platforms.find((platform) => platform.y > targetY).safeX;
@@ -218,7 +236,7 @@ function startPetBoost(game, source) {
     item: null,
   });
   game.petBoost = {
-    elapsed: 0,
+    elapsed: 0, riseMeters,
     chargeDuration: PHYSICS.petBoostChargeDuration,
     launchDuration: PHYSICS.petBoostLaunchDuration,
     duration: PHYSICS.petBoostChargeDuration + PHYSICS.petBoostLaunchDuration,
@@ -361,7 +379,7 @@ export function createGame(seed = Date.now(), { creatureMode = 'release' } = {})
     creatureMode,
     creatureGenerationIndex: 0,
     nextCreatureY: 0,
-    dogStrokes: 0,
+    dogTaps: 0,
     petBoost: null,
     trapTaps: 0,
     bubble: null,
@@ -415,6 +433,7 @@ function land(game, platform, dt) {
     x: player.x, y: platform.y, time: game.time, type: hitItem ? item.type : 'normal',
   };
   const hitSatsuma = hitItem && item.type === 'satsuma';
+  if (!hitSatsuma && game.satsumaStreak >= 10) spawnComboCreature(game);
   game.satsumaStreak = hitSatsuma ? game.satsumaStreak + 1 : 0;
   if (!hitSatsuma) game.chainTargetId = null;
 
@@ -424,7 +443,7 @@ function land(game, platform, dt) {
     player.platformId = platform.id;
     player.vx = 0;
     player.vy = 0;
-    game.dogStrokes = 0;
+    game.dogTaps = 0;
     game.bubble = null;
     emit(game, 'dog');
     return;
@@ -618,6 +637,7 @@ function ensureSatsumaTarget(game, dt) {
     for (const x of fruitPositions(game, platform)) {
       if (!directLandingAt(game, dt, platform, x)) continue;
       platform.chainSatsuma = { type: 'satsuma', x, used: false };
+      markFruitSpawn(game, platform, platform.chainSatsuma);
       game.chainTargetId = platform.id;
       return;
     }

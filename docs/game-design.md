@@ -21,7 +21,7 @@ Kaikki kolme esinettä ovat mukana ensimmäisessä versiossa. Ne aktivoituvat va
 | Esine | Vaikutus |
 | --- | --- |
 | Satsuma | Kolminkertainen hyppykorkeus ja jokin puhekuplista: ”Hyvää!”, ”Nam!”, ”Njömps!”. |
-| Ansa | Pupu jää tason mukana liikkuvaan ansaan. Neljä erillistä napautusta, nuolinäppäimen tai välilyönnin painallusta vapauttaa sen ja käynnistää pompun. Pohjassa pitäminen ei tuota lisätökkäisyjä. |
+| Ansa | Pupu jää tason mukana liikkuvaan ansaan. Kymmenen erillistä napautusta, nuolinäppäimen tai välilyönnin painallusta vapauttaa sen ja käynnistää pompun. Pohjassa pitäminen ei tuota lisätökkäisyjä. |
 | Kakka | Pupu sanoo ”Hyi kakkaa!”. Normaali pomppu jää hetkeksi pois. Pupu liukuu tulosuuntaan; nopeus ja kesto riippuvat sivuttaisnopeudesta osumahetkellä. |
 
 Kakkoja syntyy noin puolet aiemmasta määrästä. Samalla tulonopeudella vapaa liukumatka on 1,5-kertainen; tason reuna voi katkaista liu'un. Vaakasuunnassa sik-sak lentävät lokit kimmottavat ilmassa olevan pupun viistosti ylöspäin ja poispäin lokista. Lyhyt osumatauko estää saman kosketuksen toistuvan kimmotuksen. Lokki ei vapauta ansasta eikä katkaise satsumakomboa.
@@ -30,7 +30,7 @@ Jokainen satsumahyppy varmistaa seuraavan satsuman saavutettavalle korkeudelle. 
 
 Ketjun seuraava satsuma sijoitetaan valmiille saavutettavalle tasolle: ketju ei luo toisten tasojen sisään uusia tasoja. Nykyinen kolminkertainen hyppykorkeus säilyy. Esineet piirretään tasojen eteen. Ansan päällä näytetään ”TÖKI!” ja etenemispisteet ilman jäljellä olevien painallusten ohjelausetta.
 
-Kolmannesta peräkkäisestä satsumasta alkaen jokainen satsuma tuo ruudulle hetkellisen, suurenevan komboilmoituksen tähtitehosteineen. Ilmoituksen paikka vaihtelee peliruudun puolivälin alapuolella ja jättää yläosan näkyviin. Vähennetyn liikkeen asetuksella käytetään paikallaan pysyvää ilmoitusta.
+Ensimmäisestä peräkkäisestä herkusta alkaen jokainen herkku tuo ruudulle hetkellisen, suuren komboilmoituksen (”1!”, ”2!”, ”3!” jne.) tähtitehosteineen. Ilmoituksen paikka vaihtelee peliruudun puolivälin alapuolella ja jättää yläosan näkyviin. Vähennetyn liikkeen asetuksella käytetään paikallaan pysyvää ilmoitusta.
 
 ## Esitystapa
 
@@ -59,3 +59,7 @@ Repository ja myöhemmin jaettava peli ovat julkisia. Aineistoon tai historiaan 
 ## Kokeilussa säädettävät asiat
 
 Joystickin herkkyys, sivuttaisliikkeen kiihtyvyys ja jarrutus, liu'un tuntuma, kentän rullaus, tasovälit ja esineiden yleisyys arvioidaan pelaamalla. Ensimmäinen versio on pohja näille säädöille.
+
+Otuksia taputellaan 10 napautuksella tai erillisellä vasemman/oikean nuolen painalluksella. Pyyhkäisyt eivät tuota lisätaputuksia. Otsikko on ”Taputtele otusta!”. Koiran taputtelu antaa 100 metrin ampaisun; Zabin ampaisu on 300 metriä. Ansat vaativat 10 napautusta.
+
+Vähintään 10 herkun kombon katkeaminen lisää aina Zabin ruudun yläpuoliselle tyhjälle tasolle tavallisen vierityksen mukana näkyviin. Säännölliset kohtaamisvälit säilyvät. Kombon aikana pupun ympärillä on liukuvasti sateenkaaren väreissä vaihtuva hehku: kombo 1–10 vastaa 10–100 % voimakkuutta, yli 10 säilyy 100 %:ssa. Katkennut kombo sammuttaa hehkun. Näkyvään pelialueeseen lisätty herkku kasvaa ja häivyttyy näkyviin 0,3 sekunnissa. Animaatiot noudattavat peliaikaa ja taukoja; vähennetty liike poistaa kasvamisen ja hehkun väriliikkeen.

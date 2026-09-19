@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  WIDTH, HEIGHT, PHYSICS, createGame, startGame, stepGame, tapTrap, strokeDog, pauseGame, resumeGame,
+  WIDTH, HEIGHT, PHYSICS, createGame, startGame, stepGame, tapTrap, tapDog, pauseGame, resumeGame,
 } from '../src/game.js';
 
 const DT = 1 / 120;
@@ -127,7 +127,7 @@ test('an exact apex step cannot divide a zero vertical displacement', () => {
   assert.equal(game.player.vy, PHYSICS.jumpSpeed);
 });
 
-test('eight trap taps release immediately and used traps do not catch twice', () => {
+test('ten trap taps release immediately and used traps do not catch twice', () => {
   const game = landingGame('trap');
   stepGame(game, DT);
   const trappedY = game.player.y;
@@ -139,7 +139,7 @@ test('eight trap taps release immediately and used traps do not catch twice', ()
   assert.equal(game.score, score);
   assert.ok(game.camera > camera);
 
-  for (let count = 1; count < 8; count += 1) {
+  for (let count = 1; count < 10; count += 1) {
     assert.equal(tapTrap(game), true);
     assert.equal(game.trapTaps, count);
     assert.equal(game.player.state, 'trapped');
@@ -147,7 +147,7 @@ test('eight trap taps release immediately and used traps do not catch twice', ()
   assert.equal(tapTrap(game), true);
   assert.equal(game.player.state, 'air');
   assert.equal(game.player.vy, PHYSICS.jumpSpeed);
-  assert.equal(game.trapTaps, 8);
+  assert.equal(game.trapTaps, 10);
   assert.equal(tapTrap(game), false);
   Object.assign(game.player, { y: 150.1, vy: -60 });
   stepGame(game, DT);
@@ -1013,15 +1013,20 @@ test('nearby dog landing freezes the world until ten strokes and cannot trap twi
   assert.equal(JSON.stringify(game), snapshot, 'mandatory petting must never cause a scrolling loss');
   assert.equal(tapTrap(game), false);
   pauseGame(game);
-  assert.equal(strokeDog(game), false);
+  assert.equal(tapDog(game), false);
   resumeGame(game);
-  for (let i = 0; i < 9; i++) assert.equal(strokeDog(game), true);
+  for (let i = 0; i < 9; i++) assert.equal(tapDog(game), true);
   assert.equal(game.player.state, 'petting');
-  strokeDog(game);
-  assert.equal(game.player.state, 'air');
+  game.generatedTopY = platform.y;
+  tapDog(game);
+  assert.equal(game.player.state, 'pet-boost');
+  assert.equal(game.petBoost.riseMeters, 100);
+  stepGame(game, PHYSICS.petBoostChargeDuration + PHYSICS.petBoostLaunchDuration);
   assert.equal(platform.dog.petted, true);
   assert.equal(game.player.vy, PHYSICS.jumpSpeed);
-  assert.equal(strokeDog(game), false);
+  assert.equal(tapDog(game), false);
+  game.camera = 0;
+  game.platforms = [platform];
   Object.assign(game.player, { x: 110, y: 301, vy: -300 });
   stepGame(game, DT);
   assert.equal(game.player.state, 'air');

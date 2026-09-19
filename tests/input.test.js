@@ -136,17 +136,17 @@ function application({ autoStart = true, storedSettings = null, search = '', tou
   };
 }
 
-test('eight arrow presses free the bunny and the freeing key cannot steer until released', () => {
+test('ten arrow presses free the bunny and the freeing key cannot steer until released', () => {
   const app = application();
   app.trap();
-  for (const code of ['ArrowUp', 'ArrowLeft', 'ArrowDown', 'Space', 'ArrowUp', 'ArrowLeft', 'ArrowDown']) {
+  for (const code of ['ArrowUp', 'ArrowLeft', 'ArrowDown', 'Space', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Space', 'ArrowLeft']) {
     assert.equal(app.key('keydown', code).defaultPrevented, true);
     app.key('keyup', code);
   }
-  assert.equal(app.game.trapTaps, 7);
+  assert.equal(app.game.trapTaps, 9);
   assert.equal(app.game.player.state, 'trapped');
   app.key('keydown', 'ArrowRight');
-  assert.equal(app.game.trapTaps, 8);
+  assert.equal(app.game.trapTaps, 10);
   assert.equal(app.game.player.state, 'air');
   assert.ok(app.game.player.vy > 0);
   assert.equal(app.axis(), 0);
@@ -198,23 +198,23 @@ test('a lower-half joystick continues above its start area and ends on pointerup
   assert.equal(app.axis(), 0);
 });
 
-test('the eighth trap touch is consumed and only a fresh touch starts the next joystick', () => {
+test('the tenth trap touch is consumed and only a fresh touch starts the next joystick', () => {
   const app = application();
   app.trap();
-  for (let index = 1; index <= 7; index++) {
+  for (let index = 1; index <= 9; index++) {
     app.pointer('pointerdown', index);
     app.pointer('pointerup', index, 120, 880, app.window);
   }
-  app.pointer('pointerdown', 8);
+  app.pointer('pointerdown', 10);
   assert.equal(app.game.player.state, 'air');
-  app.pointer('pointermove', 8, 260, 890);
+  app.pointer('pointermove', 10, 260, 890);
   assert.equal(app.axis(), 0);
   assert.equal(app.inspect('joystick'), null);
-  app.pointer('pointerdown', 8, 140, 890);
+  app.pointer('pointerdown', 10, 140, 890);
   assert.equal(app.inspect('joystick'), null, 'a duplicate event is not a new touch');
-  app.pointer('pointerup', 8, 260, 890, app.window);
-  app.pointer('pointerdown', 8, 120, 890);
-  app.pointer('pointermove', 8, 230, 890);
+  app.pointer('pointerup', 10, 260, 890, app.window);
+  app.pointer('pointerdown', 10, 120, 890);
+  app.pointer('pointermove', 10, 230, 890);
   assert.equal(app.axis(), 1);
 });
 
@@ -349,14 +349,14 @@ test('effect control announces only sound effects and leaves the music preferenc
   assert.equal(app.game.phase, 'playing');
 });
 
-test('menu help reuses both complete desktop guides and returns focus after close or Escape', () => {
+test('menu help contains only the desktop controls guide and returns focus after close or Escape', () => {
   const app = application({ autoStart: false });
   const open = app.element('#help-open');
   const dialog = app.element('#help-dialog');
   const content = app.element('#help-content');
   const guides = [...content.children];
-  assert.equal(guides.length, 2);
-  for (const [index, selector] of ['.intro', '.field-guide'].entries()) {
+  assert.equal(guides.length, 1);
+  for (const [index, selector] of ['.intro'].entries()) {
     assert.equal(guides[index].copiedFrom, app.element(selector));
     assert.equal(guides[index].textContent, app.element(selector).textContent);
     assert.notEqual(guides[index], app.element(selector));
@@ -475,7 +475,6 @@ test('test encounter mode is explicit and survives restart and return to menu', 
     const app = application({ search });
     assert.equal(app.game.creatureMode, mode);
     assert.equal(app.element('#creature-test-notice').hidden, mode !== 'test');
-    assert.equal(app.element('.creature-interval').textContent, mode === 'test' ? '200–300' : '2 000–3 000');
     app.element('#restart').dispatch('click');
     assert.equal(app.game.creatureMode, mode);
     app.element('#back-menu').dispatch('click');
@@ -485,7 +484,7 @@ test('test encounter mode is explicit and survives restart and return to menu', 
   }
 });
 
-test('Zab stops on the final petting stroke; only the launch effect follows the boost and resumes after pause', () => {
+test('Zab stops on the final petting tap; only the launch effect follows the boost and resumes after pause', () => {
   const app = application({ search: '?creature=test' });
   const platform = app.game.platforms[0];
   platform.dog = { kind: 'zab', x: 180, direction: 1, petted: false };
@@ -493,7 +492,7 @@ test('Zab stops on the final petting stroke; only the launch effect follows the 
   app.game.events.push({ type: 'dog' });
   app.inspect('processEvents(); refreshUi()');
   assert.equal(app.pettingKinds.at(-1), 'zab');
-  assert.equal(app.element('#pet-title').textContent, 'Paijaa otusta');
+  assert.equal(app.element('#pet-title').textContent, 'Taputtele otusta!');
   assert.equal(app.boostStages.at(-1).progress, null, 'no launch effect during petting');
   app.element('#pause').dispatch('click');
   assert.equal(app.pettingKinds.at(-1), null);
@@ -508,16 +507,17 @@ test('Zab stops on the final petting stroke; only the launch effect follows the 
   app.document.hidden = false;
   app.element('#resume').dispatch('click');
   assert.equal(app.pettingKinds.at(-1), 'zab');
-  app.pointer('pointerdown', 1, 100, 400);
   const beforeFinalStrokes = app.pettingKinds.length;
-  for (let index = 0; index < 10; index++) app.pointer('pointermove', 1, index % 2 ? 100 : 210, 400);
+  for (let index = 0; index < 10; index++) {
+    app.pointer('pointerdown', 1, 100, 400);
+    app.pointer('pointerup', 1, 100, 400, app.window);
+  }
   assert.equal(app.game.player.state, 'pet-boost');
   assert.equal(platform.dog.petted, true);
   assert.ok(app.pettingKinds.slice(beforeFinalStrokes, -1).every((kind) => kind === 'zab'), 'the loop continues until the final stroke');
   assert.equal(app.pettingKinds.at(-1), null, 'the final stroke stops Zab before the glow charges');
   assert.equal(app.boostStages.at(-1).progress, null, 'the glow charges before the launch effect starts');
   assert.equal(app.inspect('petEffects.hearts.length'), 10);
-  assert.equal(app.inspect('petGesture'), null, 'the final swipe is released when the boost takes control');
   assert.equal(app.canvas.hasPointerCapture(1), false);
   const departureY = app.game.player.y;
   app.key('keydown', 'ArrowRight');
@@ -556,7 +556,7 @@ test('Zab stops on the final petting stroke; only the launch effect follows the 
   assert.equal(app.boostStages.at(-1).progress, null);
 });
 
-test('keyboard hamster petting stops Zab on the tenth press and starts the same boost as swipes', () => {
+test('keyboard hamster petting stops Zab on the tenth press and starts the same boost as taps', () => {
   const app = application();
   const platform = app.game.platforms[0];
   platform.dog = { kind: 'zab', x: 180, direction: 1, petted: false };
@@ -566,7 +566,7 @@ test('keyboard hamster petting stops Zab on the tenth press and starts the same 
     app.key('keydown', 'ArrowLeft');
     app.key('keyup', 'ArrowLeft');
   }
-  assert.equal(app.game.dogStrokes, 9);
+  assert.equal(app.game.dogTaps, 9);
   assert.equal(app.pettingKinds.at(-1), 'zab');
   app.key('keydown', 'ArrowRight');
   assert.equal(app.game.player.state, 'pet-boost');
@@ -577,32 +577,29 @@ test('keyboard hamster petting stops Zab on the tenth press and starts the same 
   assert.equal(app.game.petBoost.targetY - app.game.petBoost.fromY, 300 * core.PHYSICS.pixelsPerMeter);
 });
 
-test('dog strokes reject taps, jitter, extra fingers and long drags; ten reversals release', () => {
+test('ten dog taps launch 100 meters; held pointers and swipes never add taps', () => {
   const app = application();
   const platform = app.game.platforms[0];
   platform.dog = { x: 180, direction: 1, petted: false };
   Object.assign(app.game.player, { state: 'petting', platformId: platform.id });
   app.game.events.push({ type: 'dog' });
   app.inspect('processEvents(); refreshUi()');
-  assert.equal(app.element('#dog-notice').hidden, false);
-  assert.equal(app.element('#pet-title').textContent, 'Paijaa otusta');
-  assert.equal(app.pettingKinds.at(-1), null, 'ordinary dogs do not play the Zab loop');
+  assert.equal(app.element('#pet-title').textContent, 'Taputtele otusta!');
   app.pointer('pointerdown', 1, 100, 400);
-  app.pointer('pointermove', 1, 110, 405);
-  app.pointer('pointerdown', 2, 100, 400);
-  app.pointer('pointermove', 2, 200, 400);
-  assert.equal(app.game.dogStrokes, 0);
-  assert.equal(app.inspect('petEffects.hearts.length'), 0);
-  app.pointer('pointermove', 1, 150, 400);
-  app.pointer('pointermove', 1, 210, 400);
-  assert.equal(app.game.dogStrokes, 1, 'a continuous long drag counts only once');
-  assert.equal(app.inspect('petEffects.hearts.length'), 1);
-  for (let i = 0; i < 9; i++) app.pointer('pointermove', 1, i % 2 ? 210 : 100, 400);
-  assert.equal(app.game.dogStrokes, 10);
-  assert.equal(app.inspect('petEffects.hearts.length'), 10, 'the final stroke also creates hearts');
-  assert.equal(app.game.player.state, 'air');
+  app.pointer('pointerdown', 1, 100, 400);
+  for (let i = 0; i < 12; i++) app.pointer('pointermove', 1, i % 2 ? 100 : 220, 400);
+  assert.equal(app.game.dogTaps, 1);
+  for (let i = 1; i < 10; i++) {
+    app.pointer('pointerup', 1, 100, 400, app.window);
+    app.pointer('pointerdown', 1, 100, 400);
+  }
+  assert.equal(app.game.dogTaps, 10);
+  assert.equal(app.inspect('petEffects.hearts.length'), 10);
+  assert.equal(app.game.player.state, 'pet-boost');
+  assert.equal(app.game.petBoost.targetY - app.game.petBoost.fromY, 100 * core.PHYSICS.pixelsPerMeter);
   assert.equal(app.element('#dog-notice').hidden, true);
-  assert.equal(app.axis(), 0, 'the final stroke is consumed');
+  assert.match(app.element('#announcer').textContent, /100 metriä/);
+  assert.equal(app.axis(), 0);
 });
 
 test('canceled dog gesture and blur cannot produce ghost strokes after resume', () => {
@@ -612,13 +609,13 @@ test('canceled dog gesture and blur cannot produce ghost strokes after resume', 
   app.pointer('pointerdown', 1, 100, 400);
   app.pointer('pointercancel', 1, 100, 400, app.window);
   app.pointer('pointermove', 1, 200, 400);
-  assert.equal(app.game.dogStrokes, 0);
+  assert.equal(app.game.dogTaps, 1);
   app.pointer('pointerdown', 2, 100, 400);
   app.window.dispatch('blur');
   assert.equal(app.canvas.hasPointerCapture(2), false);
   app.element('#resume').dispatch('click');
   app.pointer('pointermove', 2, 200, 400);
-  assert.equal(app.game.dogStrokes, 0);
+  assert.equal(app.game.dogTaps, 2);
 });
 
 
@@ -651,11 +648,11 @@ test('ten separate left/right presses pet the creature with hearts and consume t
     app.key('keydown', code);
     app.key('keyup', code);
   }
-  assert.equal(app.game.dogStrokes, 0);
+  assert.equal(app.game.dogTaps, 0);
   app.key('keydown', 'ArrowLeft');
   app.key('keydown', 'ArrowLeft');
   app.key('keydown', 'ArrowLeft', { repeat: true });
-  assert.equal(app.game.dogStrokes, 1);
+  assert.equal(app.game.dogTaps, 1);
   assert.equal(app.axis(), 0);
   app.key('keyup', 'ArrowLeft');
   for (let i = 1; i < 9; i++) {
@@ -665,38 +662,39 @@ test('ten separate left/right presses pet the creature with hearts and consume t
   }
   assert.equal(app.game.player.state, 'petting');
   app.key('keydown', 'ArrowRight');
-  assert.equal(app.game.dogStrokes, 10);
+  assert.equal(app.game.dogTaps, 10);
   assert.equal(app.inspect('petEffects.hearts.length'), 10);
-  assert.equal(app.game.player.state, 'air');
+  assert.equal(app.game.player.state, 'pet-boost');
   assert.equal(app.element('#dog-notice').hidden, true);
   app.key('keydown', 'ArrowRight', { repeat: true });
   assert.equal(app.axis(), 0);
+  app.inspect('stepGame(game, PHYSICS.petBoostChargeDuration + PHYSICS.petBoostLaunchDuration); processEvents()');
   app.key('keyup', 'ArrowRight');
   app.key('keydown', 'ArrowRight');
   assert.equal(app.axis(), 1);
 });
 
-test('petting keyboard input respects focused controls and pause, and combines with swipes', () => {
+test('petting keyboard input respects focused controls and pause, and combines with taps', () => {
   const app = application();
   app.game.platforms[0].dog = { x: 180, petted: false };
   Object.assign(app.game.player, { state: 'petting', platformId: 0 });
   app.element('#sound').focus();
   app.key('keydown', 'ArrowLeft');
-  assert.equal(app.game.dogStrokes, 0);
+  assert.equal(app.game.dogTaps, 0);
   app.canvas.focus();
   app.key('keydown', 'ArrowLeft');
   app.window.dispatch('blur');
   app.key('keydown', 'ArrowRight');
-  assert.equal(app.game.dogStrokes, 1);
+  assert.equal(app.game.dogTaps, 1);
   app.element('#resume').dispatch('click');
   app.key('keydown', 'ArrowLeft', { repeat: true });
-  assert.equal(app.game.dogStrokes, 1);
+  assert.equal(app.game.dogTaps, 1);
   app.key('keyup', 'ArrowLeft');
   app.pointer('pointerdown', 1, 100, 400);
   app.pointer('pointermove', 1, 150, 400);
   app.pointer('pointerup', 1, 150, 400, app.window);
   app.key('keydown', 'ArrowRight');
-  assert.equal(app.game.dogStrokes, 3);
+  assert.equal(app.game.dogTaps, 3);
   assert.equal(app.inspect('petEffects.hearts.length'), 3);
   assert.equal(app.axis(), 0);
 });
@@ -711,7 +709,7 @@ test('control guidance and accessible event instructions follow the primary poin
   assert.doesNotMatch(app.element('#announcer').textContent, /näppä/);
   app.game.events.push({ type: 'dog' });
   app.inspect('processEvents()');
-  assert.match(app.element('#announcer').textContent, /pyyhkäisemällä/);
+  assert.match(app.element('#announcer').textContent, /Napauta/);
   assert.doesNotMatch(app.element('#announcer').textContent, /hiir/i);
   app.setTouch(false);
   assert.equal(app.document.body.dataset.inputMode, 'keyboard');

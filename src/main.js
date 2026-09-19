@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, PHYSICS, createGame, startGame, stepGame, tapTrap, strokeDog, pauseGame, resumeGame } from './game.js';
+import { WIDTH, HEIGHT, PHYSICS, createGame, startGame, stepGame, tapTrap, tapDog, pauseGame, resumeGame } from './game.js';
 import { drawGame } from './render.js';
 import { GameAudio } from './audio.js';
 import { setupPwa } from './pwa.js';
@@ -14,9 +14,8 @@ const trapNotice = $('#trap-notice');
 const helpDialog = $('#help-dialog');
 const creatureMode = new URLSearchParams(window.location.search).get('creature') === 'test' ? 'test' : 'release';
 $('#creature-test-notice').hidden = creatureMode !== 'test';
-$('.creature-interval').textContent = creatureMode === 'test' ? '200–300' : '2 000–3 000';
 // Both help surfaces share the same device-specific guide content.
-$('#help-content').append($('.intro').cloneNode(true), $('.field-guide').cloneNode(true));
+$('#help-content').append($('.intro').cloneNode(true));
 const keys = new Set();
 const tapKeys = new Set();
 const downPointers = new Set();
@@ -52,7 +51,6 @@ $('#storage-notice').hidden = storageAvailable;
 const audio = new GameAudio(settings.sound, settings.music);
 let game = createGame(20260918, { creatureMode });
 let joystick = null;
-let petGesture = null;
 let petEffects = { time: 0, hearts: [] };
 let accumulator = 0;
 let previousTime = 0;
@@ -69,8 +67,8 @@ let recordBeforeRound = best;
 function refreshControlMode() {
   document.body.dataset.inputMode = touchControls.matches ? 'touch' : 'keyboard';
   canvas.setAttribute('aria-label', touchControls.matches
-    ? 'Pystysuuntainen pomppupeli. Ohjaa vetämällä sormea pelialueen alemmalla puoliskolla. Vapauta ansasta kahdeksalla napautuksella. Paijaa otusta kymmenellä pyyhkäisyllä.'
-    : 'Pystysuuntainen pomppupeli. Ohjaa vasemmalla ja oikealla nuolella. Vapauta ansasta kahdeksalla nuolinäppäimen tai välilyönnin painalluksella. Paijaa otusta kymmenellä vasemman tai oikean nuolen painalluksella tai hiiren vedolla.');
+    ? 'Pystysuuntainen pomppupeli. Ohjaa vetämällä sormea pelialueen alemmalla puoliskolla. Vapauta ansasta kymmenellä napautuksella. Taputtele otusta kymmenellä napautuksella.'
+    : 'Pystysuuntainen pomppupeli. Ohjaa vasemmalla ja oikealla nuolella. Vapauta ansasta kymmenellä nuolinäppäimen tai välilyönnin painalluksella. Taputtele otusta kymmenellä vasemman tai oikean nuolen painalluksella tai hiiren klikkauksella.');
 }
 touchControls.addEventListener('change', refreshControlMode);
 refreshControlMode();
@@ -102,8 +100,6 @@ function setTheme(theme) {
   audio.setScene(theme, game.phase);
 }
 function clearInput() {
-  if (petGesture && canvas.hasPointerCapture(petGesture.id)) canvas.releasePointerCapture(petGesture.id);
-  petGesture = null;
   keys.clear();
   tapKeys.clear();
   if (joystick && canvas.hasPointerCapture(joystick.id)) canvas.releasePointerCapture(joystick.id);
@@ -116,20 +112,20 @@ function processEvents() {
       petEffects = { time: 0, hearts: [] };
       clearInput();
       announce(touchControls.matches
-        ? 'Paijaa otusta pyyhkäisemällä ruutua kymmenen kertaa.'
-        : 'Paijaa otusta painamalla vasenta tai oikeaa nuolta kymmenen kertaa. Voit myös pitää hiiren painikkeen pohjassa ja vetää edestakaisin.');
+        ? 'Taputtele otusta! Napauta ruutua kymmenen kertaa.'
+        : 'Taputtele otusta! Paina vasenta tai oikeaa nuolta kymmenen kertaa tai klikkaa hiirellä.');
     }
     if (event.type === 'trap') {
       clearInput();
       announce(touchControls.matches
-        ? 'Jalka jäi ansaan. Napauta kahdeksan kertaa.'
-        : 'Jalka jäi ansaan. Paina nuolinäppäimiä tai välilyöntiä kahdeksan kertaa.');
+        ? 'Jalka jäi ansaan. Napauta kymmenen kertaa.'
+        : 'Jalka jäi ansaan. Paina nuolinäppäimiä tai välilyöntiä kymmenen kertaa.');
     }
     if (event.type === 'satsuma') announce(`${game.bubble} Kolminkertainen hyppy!${game.satsumaStreak >= 3 ? ` ${game.satsumaStreak} välipalan kombo!` : ''}`);
     if (event.type === 'release') announce('Vapaa!');
     if (event.type === 'pet-boost') {
       clearInput();
-      announce('Vihreä hehku! Pupu ampaisee 300 metriä ylöspäin!');
+      announce(`Vihreä hehku! Pupu ampaisee ${game.petBoost.riseMeters} metriä ylöspäin!`);
     }
     if (event.type === 'pet-boost-release') {
       clearInput();
@@ -229,8 +225,8 @@ function refreshUi() {
   PHYSICS.petBoostLaunchDuration);
   $('#dog-notice').hidden = !petting;
   if (petting) {
-    $('#pet-title').textContent = 'Paijaa otusta';
-    $('#dog-count').textContent = `${game.dogStrokes}/${PHYSICS.dogStrokes}`;
+    $('#pet-title').textContent = 'Taputtele otusta!';
+    $('#dog-count').textContent = `${game.dogTaps}/${PHYSICS.dogTaps}`;
   }
   refreshUpdateNotice();
 }
@@ -287,8 +283,8 @@ document.querySelectorAll('[data-theme-choice]').forEach((button) => {
 });
 
 function petOnce() {
-  if (strokeDog(game)) {
-    petEffects.hearts.push({ born: petEffects.time, stroke: game.dogStrokes });
+  if (tapDog(game)) {
+    petEffects.hearts.push({ born: petEffects.time, stroke: game.dogTaps });
   }
   processEvents();
   refreshUi();
@@ -309,10 +305,7 @@ canvas.addEventListener('pointerdown', (event) => {
   audio.unlock();
   if (game.player.state === 'pet-boost') return;
   if (game.player.state === 'petting') {
-    if (!petGesture) {
-      petGesture = { id: event.pointerId, anchor: point, direction: null };
-      canvas.setPointerCapture(event.pointerId);
-    }
+    petOnce();
     return;
   }
   if (game.player.state === 'trapped') {
@@ -327,25 +320,6 @@ canvas.addEventListener('pointerdown', (event) => {
   canvas.focus({ preventScroll: true });
 });
 canvas.addEventListener('pointermove', (event) => {
-  if (petGesture?.id === event.pointerId) {
-    if (game.phase !== 'playing' || game.player.state !== 'petting') return;
-    const gesture = petGesture;
-    const point = pointFromEvent(event);
-    const dx = point.x - gesture.anchor.x;
-    const dy = point.y - gesture.anchor.y;
-    const distance = Math.hypot(dx, dy);
-    if (distance < 32) return;
-    const direction = { x: dx / distance, y: dy / distance };
-    const previous = gesture.direction;
-    // One stroke per deliberate direction; a long drag cannot count repeatedly.
-    if (!previous || direction.x * previous.x + direction.y * previous.y < -0.5) {
-      petOnce();
-      gesture.direction = direction;
-    }
-    // Completing hamster petting clears input while the boost takes over movement.
-    gesture.anchor = point;
-    return;
-  }
   if (joystick?.id !== event.pointerId) return;
   const point = pointFromEvent(event);
   joystick.dx = Math.max(-52, Math.min(52, point.x - joystick.x));
@@ -353,7 +327,6 @@ canvas.addEventListener('pointermove', (event) => {
 });
 function endPointer(event) {
   downPointers.delete(event.pointerId);
-  if (petGesture?.id === event.pointerId) petGesture = null;
   if (joystick?.id === event.pointerId) joystick = null;
 }
 window.addEventListener('pointerup', endPointer);

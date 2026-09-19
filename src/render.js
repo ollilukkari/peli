@@ -752,10 +752,11 @@ export function drawSeasonFruit(ctx, x, y, time, theme, reducedMotion) {
   const pulse = reducedMotion ? 0.5 : (1 + Math.sin(time * Math.PI / 2.6 + x * 0.07)) / 2;
   const float = reducedMotion ? 0 : Math.sin(time * Math.PI / 2.6 + x * 0.07) * 0.8;
   y += float;
+  const opacity = ctx.globalAlpha;
   ctx.save();
-  ctx.globalAlpha = pulse * 0.036;
+  ctx.globalAlpha = opacity * pulse * 0.036;
   pixelOval(ctx, outerGlow, x - 27, y - 41, 54, 51, 8);
-  ctx.globalAlpha = pulse * 0.072;
+  ctx.globalAlpha = opacity * pulse * 0.072;
   pixelOval(ctx, innerGlow, x - 23, y - 37, 46, 43, 6);
   ctx.restore();
   if (strawberry) drawStrawberry(ctx, x, y);
@@ -776,7 +777,7 @@ export function drawSeasonFruit(ctx, x, y, time, theme, reducedMotion) {
     for (const [offset, dx, dy, size] of [[0, 23, -24, 2], [2.4, -21, -38, 1]]) {
       const phase = (time + x * 0.017 + offset) % 5.8;
       if (phase >= 1.3) continue;
-      ctx.globalAlpha = Math.sin(phase / 1.3 * Math.PI) ** 2 * 0.85;
+      ctx.globalAlpha = opacity * Math.sin(phase / 1.3 * Math.PI) ** 2 * 0.85;
       star(ctx, x + dx, y + dy, sparkle, size);
     }
     ctx.restore();
@@ -1355,6 +1356,21 @@ export function drawZab(ctx, pet, feetY, time, petting = false, showHeart = true
   ctx.restore();
 }
 
+function drawComboGlow(ctx, game, bunnyY, reducedMotion, launchStretch) {
+  const strength = Math.min(10, game.satsumaStreak) / 10;
+  if (strength <= 0) return;
+  // Simulation time freezes the hue on pause. Reduced motion keeps a steady hue.
+  const hue = reducedMotion ? 180 : (game.time * 60) % 360;
+  ctx.save();
+  ctx.globalAlpha *= strength;
+  ctx.translate(game.player.x, bunnyY);
+  ctx.scale(1 - launchStretch * 0.3, 1 + launchStretch);
+  pixelOval(ctx, `hsla(${hue}, 100%, 65%, 0.18)`, -40, -70, 80, 87, 8);
+  pixelOval(ctx, `hsla(${(hue + 35) % 360}, 100%, 72%, 0.28)`, -32, -63, 64, 74, 6);
+  pixelOval(ctx, `hsla(${(hue + 70) % 360}, 100%, 82%, 0.36)`, -26, -58, 52, 64, 4);
+  ctx.restore();
+}
+
 function drawPetBoost(ctx, game, bunnyY, reducedMotion, launchStretch) {
   if (game.player.state !== 'pet-boost' || !game.petBoost) return;
   const boost = game.petBoost;
@@ -1476,8 +1492,28 @@ function drawLandingEffect(ctx, landing, age, screenY, theme) {
   ctx.restore();
 }
 
+function drawSpawnedFruit(ctx, item, y, gameTime, visualTime, theme, reducedMotion) {
+  const age = item.spawnedAt === undefined ? Infinity : gameTime - item.spawnedAt;
+  if (age >= 0.3 || age < 0) {
+    drawSeasonFruit(ctx, item.x, y, visualTime, theme, reducedMotion);
+    return;
+  }
+  const progress = Math.max(0, age / 0.3);
+  ctx.save();
+  ctx.globalAlpha *= Math.min(1, progress * 3);
+  if (!reducedMotion) {
+    const scale = progress < 0.7 ? 0.25 + progress / 0.7 * 0.87
+      : 1.12 - (progress - 0.7) / 0.3 * 0.12;
+    ctx.translate(item.x, y - 18);
+    ctx.scale(scale, scale);
+    ctx.translate(-item.x, -(y - 18));
+  }
+  drawSeasonFruit(ctx, item.x, y, visualTime, theme, reducedMotion);
+  ctx.restore();
+}
+
 function drawComboBurst(ctx, game, theme, reducedMotion) {
-  if (!(game.satsumaStreak >= 3) || game.lastLanding?.type !== 'satsuma') return;
+  if (!(game.satsumaStreak >= 1) || game.lastLanding?.type !== 'satsuma') return;
   const age = game.time - game.lastLanding.time;
   const duration = reducedMotion ? 0.55 : 0.85;
   if (age < 0 || age >= duration) return;
@@ -1487,15 +1523,15 @@ function drawComboBurst(ctx, game, theme, reducedMotion) {
     : theme === 'kvlt'
       ? { fill: '#d3b5e9', ink: '#38233f', border: '#ffe8ad', spark: '#f8d483' }
       : { fill: '#ffd378', ink: '#65404b', border: '#fff9d7', spark: '#ffbd65' };
-  const label = `${game.satsumaStreak}× KOMBO!`;
+  const label = `${game.satsumaStreak}!`;
   ctx.save();
-  ctx.font = 'bold 24px monospace';
-  const fontSize = Math.min(24, Math.floor(24 * 228 / ctx.measureText(label).width));
+  ctx.font = 'bold 48px monospace';
+  const fontSize = Math.min(48, Math.floor(48 * 228 / ctx.measureText(label).width));
   ctx.font = `bold ${fontSize}px monospace`;
-  const halfWidth = (Math.ceil(ctx.measureText(label).width) + 28) / 2;
+  const halfWidth = Math.max(48, (Math.ceil(ctx.measureText(label).width) + 28) / 2);
   // Keep the whole celebration below the midpoint and clear of the bottom controls.
   const positions = [[180, 420], [132, 452], [228, 436], [150, 468], [222, 456]];
-  const [requestedX, y] = positions[(game.satsumaStreak - 3) % positions.length];
+  const [requestedX, y] = positions[(game.satsumaStreak - 1) % positions.length];
   const extent = (halfWidth + 18) * 1.12;
   const x = Math.max(16 + extent, Math.min(WIDTH - 16 - extent, requestedX));
   const pop = reducedMotion ? 1
@@ -1629,11 +1665,11 @@ export function drawGame(ctx, game, options = {}) {
     // A satsuma and its sparkle extend above a platform already below the screen.
     if (y < -10 || y > HEIGHT + 48) continue;
     const item = platform.item;
-    if (item?.type === 'satsuma' && !item.used) drawSeasonFruit(ctx, item.x, y, visualTime, theme, reducedMotion);
+    if (item?.type === 'satsuma' && !item.used) drawSpawnedFruit(ctx, item, y, game.time, visualTime, theme, reducedMotion);
     if (item?.type === 'trap') drawTrap(ctx, item.x, y, theme, item.used, visualTime, reducedMotion);
     if (item?.type === 'poop') drawPoop(ctx, item.x, y, theme, item.used, visualTime, reducedMotion);
     const chain = platform.chainSatsuma;
-    if (chain && !chain.used) drawSeasonFruit(ctx, chain.x, y, visualTime, theme, reducedMotion);
+    if (chain && !chain.used) drawSpawnedFruit(ctx, chain, y, game.time, visualTime, theme, reducedMotion);
   }
 
   for (const platform of game.platforms) {
@@ -1676,6 +1712,7 @@ export function drawGame(ctx, game, options = {}) {
     vy: player.vy,
     reducedMotion,
   };
+  drawComboGlow(ctx, game, bunnyY, reducedMotion, launchStretch);
   drawBunny(ctx, player.x, bunnyY, bunnyOptions);
   drawGullHit(ctx, game.lastGullHit, game.time, screenY, theme, reducedMotion);
   if (game.bubble && game.time < game.bubbleUntil) drawBubble(ctx, game.bubble, player.x, bunnyY, theme);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PHYSICS, createGame, startGame, stepGame, strokeDog, pauseGame, resumeGame,
+  PHYSICS, createGame, startGame, stepGame, tapDog, pauseGame, resumeGame,
 } from '../src/game.js';
 
 const DT = 1 / 120;
@@ -30,7 +30,7 @@ function pettingGame(seed = 7, height = 0) {
 }
 
 function charge(game) {
-  for (let stroke = 0; stroke < PHYSICS.dogStrokes; stroke++) assert.equal(strokeDog(game), true);
+  for (let stroke = 0; stroke < PHYSICS.dogTaps; stroke++) assert.equal(tapDog(game), true);
   assert.equal(game.player.state, 'pet-boost');
   return { ...game.petBoost };
 }
@@ -40,7 +40,7 @@ test('ten hamster strokes launch exactly 300 m at 80% of the original ascent spe
   const fromY = game.player.y;
   const boost = charge(game);
   assert.equal(source.dog.petted, true);
-  assert.equal(strokeDog(game), false);
+  assert.equal(tapDog(game), false);
   assert.equal(boost.chargeDuration, 0.25);
   assert.equal(boost.launchDuration, LAUNCH_DURATION);
   assert.equal(boost.duration, BOOST_DURATION);
@@ -122,7 +122,7 @@ test('pause freezes both charging and launching and resumes the remaining animat
     const paused = structuredClone(game);
     stepGame(game, 60, 1);
     assert.deepEqual(game, paused);
-    assert.equal(strokeDog(game), false);
+    assert.equal(tapDog(game), false);
     resumeGame(game);
     stepGame(game, boost.duration - elapsed);
     assert.equal(game.player.y, boost.targetY);
@@ -186,12 +186,25 @@ test('safe arrival preserves the generated route and reaches the next real ledge
   }
 });
 
-test('ordinary dogs keep the normal release jump and never receive the rare boost', () => {
+test('ordinary dogs launch exactly 100 meters and resume on a safe ledge', () => {
   const { game, source } = pettingGame();
   delete source.dog.kind;
-  for (let stroke = 0; stroke < 10; stroke++) strokeDog(game);
+  for (let tap = 0; tap < 10; tap++) tapDog(game);
+  assert.equal(game.player.state, 'pet-boost');
+  const boost = { ...game.petBoost };
+  assert.equal(boost.targetY - boost.fromY, 100 * PHYSICS.pixelsPerMeter);
+  pauseGame(game);
+  const snapshot = structuredClone(game);
+  stepGame(game, 10);
+  assert.deepEqual(game, snapshot);
+  resumeGame(game);
+  stepGame(game, boost.duration);
+  assert.equal(game.player.y, boost.targetY);
   assert.equal(game.player.state, 'air');
   assert.equal(game.player.vy, PHYSICS.jumpSpeed);
   assert.equal(game.petBoost, null);
-  assert.deepEqual(game.events.map((event) => event.type), ['release']);
+  const landing = game.platforms.find((entry) => entry.id === boost.landingPlatformId);
+  assert.equal(landing.y, game.player.y);
+  assert.ok(game.player.x >= landing.x && game.player.x <= landing.x + landing.width);
+  assert.deepEqual(game.events.map((event) => event.type), ['pet-boost', 'pet-boost-release']);
 });
