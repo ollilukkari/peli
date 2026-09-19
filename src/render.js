@@ -1,4 +1,6 @@
 // Original, hand-drawn pixel artwork. All coordinates use the 360 × 640 playfield.
+import { PHYSICS } from './game.js';
+
 const WIDTH = 360;
 const HEIGHT = 640;
 
@@ -905,11 +907,30 @@ export function getEatingExpression(game, theme) {
   };
 }
 
+function getLaunchStretch(game) {
+  const { player, petBoost, lastLanding, lastMealAt } = game;
+  if (player.state === 'pet-boost' && petBoost) {
+    const progress = Math.max(0, Math.min(1,
+      (petBoost.elapsed - petBoost.chargeDuration) / petBoost.launchDuration));
+    // Follow the speed of the smooth launch, including its gentle arrival.
+    return 0.7 * 4 * progress * (1 - progress);
+  }
+  if (player.state !== 'air' || lastLanding?.type !== 'satsuma'
+      || lastMealAt == null || lastLanding.time !== lastMealAt) return 0;
+  const age = game.time - lastMealAt;
+  const launchSpeed = PHYSICS.jumpSpeed * PHYSICS.boostMultiplier;
+  if (age < 0 || age > launchSpeed / PHYSICS.gravity) return 0;
+  const speed = Math.max(0, Math.min(1,
+    (player.vy - PHYSICS.jumpSpeed) / (launchSpeed - PHYSICS.jumpSpeed)));
+  // Uncoil from the landing squash, then relax as the extra upward speed fades.
+  return 0.7 * Math.min(1, age / 0.045) * speed;
+}
+
 /** Draw the round Ponppu character, anchored at the unchanged physics feet. */
 export function drawBunny(ctx, x, feetY, {
   theme = 'meadow', pose = 'idle', scale = 1, facing = 1, time = 0,
   mouthOpen = 0, stainAlpha = 0, stainColor = '#ed963b',
-  impact = 0, vx = 0, vy = 0, reducedMotion = false, skin = theme === 'winter' ? 'winter' : theme === 'kvlt' ? 'corpse-paint' : 'classic',
+  impact = 0, launchStretch = 0, vx = 0, vy = 0, reducedMotion = false, skin = theme === 'winter' ? 'winter' : theme === 'kvlt' ? 'corpse-paint' : 'classic',
 } = {}) {
   ctx.save();
   ctx.translate(Math.round(x), Math.round(feetY));
@@ -934,7 +955,8 @@ export function drawBunny(ctx, x, feetY, {
     const squash = Math.max(0, Math.min(1, impact));
     const stretch = rising ? 0.045 + Math.min(Math.max(vy, 0) / 1000, 1) * 0.035 : falling ? 0.025 : 0;
     const breath = pose === 'idle' ? Math.sin(time * 3) * 0.012 : 0;
-    ctx.scale(1 - stretch * 0.45 + squash * 0.12, 1 + stretch + breath - squash * 0.22);
+    ctx.scale(1 - stretch * 0.45 + squash * 0.12 - launchStretch * 0.3,
+      1 + stretch + breath - squash * 0.22 + launchStretch);
     const lean = sliding ? facing * 0.14 : Math.max(-1, Math.min(1, vx / 240)) * 0.07;
     ctx.transform(1, 0, -lean, 1, 0, 0);
   }
@@ -1140,6 +1162,134 @@ export function drawDog(ctx, dog, feetY, time, petting = false, showHeart = true
   ctx.restore();
 }
 
+export function drawZab(ctx, pet, feetY, time, petting = false, showHeart = true) {
+  ctx.save();
+  ctx.translate(Math.round(pet.x), Math.round(feetY));
+  ctx.scale(pet.direction * 0.5, 0.5);
+  const ink = '#2d3c23';
+  const shadow = '#496328';
+  const fur = '#6f8b35';
+  const light = '#8aa442';
+  const breathe = Math.round(Math.sin(time * 3) * 0.8);
+
+  // A tiny, tucked-in hamster keeps the visitor distinct from the dog.
+  pixelOval(ctx, ink, -26, -29, 52, 29, 4);
+  pixelOval(ctx, shadow, -24, -27, 48, 25, 4);
+  pixelOval(ctx, fur, -20, -29, 42, 23, 4);
+  pixelOval(ctx, light, 10, -23, 11, 13, 3);
+  pixelOval(ctx, ink, -28, -10, 15, 10, 2);
+  pixelOval(ctx, fur, -26, -9, 13, 7, 2);
+  box(ctx, light, -23, -9, 7, 2);
+  pixelOval(ctx, ink, -14, -8, 14, 9, 2);
+  pixelOval(ctx, ink, 4, -8, 14, 9, 2);
+  box(ctx, fur, -12, -6, 10, 5);
+  box(ctx, fur, 6, -6, 10, 5);
+  box(ctx, light, -11, -6, 7, 2);
+  box(ctx, light, 7, -6, 7, 2);
+  box(ctx, shadow, -8, -3, 1, 2);
+  box(ctx, shadow, 11, -3, 1, 2);
+
+  ctx.save();
+  ctx.translate(0, breathe);
+  // Small round hamster ears and a soft rounded face, all in native pixels.
+  pixelOval(ctx, ink, -23, -38, 13, 15, 3);
+  pixelOval(ctx, ink, 10, -38, 13, 15, 3);
+  pixelOval(ctx, light, -20, -36, 8, 11, 2);
+  pixelOval(ctx, shadow, 12, -36, 8, 11, 2);
+  pixelOval(ctx, ink, -22, -34, 43, 30, 4);
+  pixelOval(ctx, fur, -20, -33, 39, 27, 4);
+  pixelOval(ctx, light, -13, -32, 26, 13, 3);
+  box(ctx, '#9fb851', -10, -31, 13, 2);
+  box(ctx, light, -19, -19, 4, 7);
+  box(ctx, shadow, 15, -20, 3, 10);
+
+  // Bright fuzzy antennae lean out from the forehead and sway by two pixels.
+  for (const [side, rootX, top] of [[-1, -7, -52], [1, 5, -55]]) {
+    const sway = Math.round(Math.sin(time * (petting ? 4 : 2.6) + (side + 1) * 0.6) * 2);
+    for (let segment = 0; segment < 5; segment++) {
+      const antennaX = rootX + side * segment + Math.round(sway * segment / 4);
+      const antennaY = -35 + Math.round((top + 38) * segment / 4);
+      box(ctx, '#628b35', antennaX - 2, antennaY - 1, 6, 6);
+      box(ctx, '#a5d95f', antennaX - 1, antennaY - 1, 4, 5);
+      box(ctx, '#c0ed82', antennaX - 1, antennaY, 2, 3);
+      if (segment % 2 === 0) box(ctx, '#a5d95f', antennaX - 3, antennaY, 1, 2);
+    }
+    const tipX = rootX + side * 4 + sway;
+    pixelOval(ctx, '#628b35', tipX - 4, top - 2, 10, 9, 2);
+    pixelOval(ctx, '#a5d95f', tipX - 3, top - 2, 8, 7, 2);
+    box(ctx, '#cef29b', tipX - 2, top - 1, 4, 2);
+    box(ctx, '#8abd4d', tipX + 1, top + 3, 3, 2);
+  }
+
+  // Large slanted glassy eyes: the pale flecks remain visible at platform size.
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.scale(side, 1);
+    shape(ctx, '#1b2819', [[6, -19], [6, -23], [9, -23], [9, -26], [13, -26], [13, -29], [17, -29], [17, -26], [18, -26], [18, -21], [15, -21], [15, -18], [10, -18], [10, -16], [7, -16], [7, -19]]);
+    shape(ctx, '#090f0e', [[8, -20], [8, -23], [11, -23], [11, -26], [15, -26], [15, -27], [17, -27], [17, -22], [14, -22], [14, -19], [10, -19], [10, -18], [8, -18]]);
+    box(ctx, '#e7f6c4', 14, -26, 2, 3);
+    box(ctx, '#799767', 13, -23, 1, 2);
+    box(ctx, '#385d43', 9, -20, 2, 1);
+    ctx.restore();
+  }
+  pixelOval(ctx, '#7e9c3c', -9, -15, 18, 8, 2);
+  box(ctx, shadow, -3, -14, 6, 2);
+  box(ctx, '#3c5425', -2, -13, 4, 2);
+  box(ctx, shadow, -1, -11, 2, 2);
+  box(ctx, shadow, -6, -10, 5, 2);
+  box(ctx, shadow, 1, -10, 5, 2);
+  box(ctx, shadow, -2, -9, 4, 1);
+  box(ctx, '#95ac4b', -12, -12, 3, 1);
+  box(ctx, '#95ac4b', 10, -12, 3, 1);
+  ctx.restore();
+
+  if (petting && showHeart) {
+    box(ctx, '#ed94ad', -3, -66, 4, 3);
+    box(ctx, '#ed94ad', 3, -66, 4, 3);
+    box(ctx, '#ed94ad', -2, -63, 8, 3);
+    box(ctx, '#ed94ad', 0, -60, 4, 2);
+  }
+  ctx.restore();
+}
+
+function drawPetBoost(ctx, game, bunnyY, reducedMotion, launchStretch) {
+  if (game.player.state !== 'pet-boost' || !game.petBoost) return;
+  const boost = game.petBoost;
+  const x = game.player.x;
+  const charging = boost.elapsed < boost.chargeDuration;
+  const charge = Math.min(1, boost.elapsed / boost.chargeDuration);
+  const strength = reducedMotion ? 0.85 : 0.3 + charge * 0.7;
+  ctx.save();
+
+  // The upward launch leaves a stepped green tail beneath the bunny's feet.
+  // All motion follows boost elapsed time, so pausing also freezes the effect.
+  if (!charging && !reducedMotion) {
+    shape(ctx, 'rgba(98, 240, 96, 0.22)', [[x - 25, bunnyY - 20], [x + 25, bunnyY - 20],
+      [x + 25, bunnyY + 21], [x + 18, bunnyY + 21], [x + 18, bunnyY + 52],
+      [x + 10, bunnyY + 52], [x + 10, bunnyY + 91], [x + 4, bunnyY + 91],
+      [x + 4, bunnyY + 124], [x - 4, bunnyY + 124], [x - 4, bunnyY + 91],
+      [x - 10, bunnyY + 91], [x - 10, bunnyY + 52], [x - 18, bunnyY + 52],
+      [x - 18, bunnyY + 21], [x - 25, bunnyY + 21]]);
+    pixelOval(ctx, 'rgba(181, 255, 131, 0.35)', x - 13, bunnyY - 11, 26, 73, 4);
+    for (let index = 0; index < 8; index += 1) {
+      const side = index % 2 ? 1 : -1;
+      const streakX = x + side * (31 + (index % 4) * 8);
+      const offset = ((boost.elapsed - boost.chargeDuration) * 680 + index * 23) % 150;
+      ctx.globalAlpha = 0.55 * (1 - offset / 180);
+      box(ctx, '#bdff98', streakX, bunnyY - 39 + offset, 2, 13 + (index % 3) * 7);
+    }
+  }
+
+  // Concentric pixel halos wrap the silhouette without obscuring the face.
+  ctx.globalAlpha = strength;
+  ctx.translate(x, bunnyY);
+  ctx.scale(1 - launchStretch * 0.3, 1 + launchStretch);
+  pixelOval(ctx, 'rgba(81, 234, 86, 0.18)', -38, -68, 76, 83, 8);
+  pixelOval(ctx, 'rgba(126, 255, 104, 0.28)', -31, -62, 62, 72, 6);
+  pixelOval(ctx, 'rgba(205, 255, 163, 0.36)', -25, -57, 50, 62, 4);
+  ctx.restore();
+}
+
 export function drawPettingScene(ctx, game, effects, reducedMotion = false) {
   if (game.phase !== 'playing') return;
   const petting = game.player.state === 'petting';
@@ -1148,11 +1298,13 @@ export function drawPettingScene(ctx, game, effects, reducedMotion = false) {
   ctx.save();
   if (petting) {
     box(ctx, 'rgba(10, 16, 27, 0.76)', 0, 0, WIDTH, HEIGHT);
-    // The enlarged dog stays above the instruction panel at 60% of screen height.
+    const pet = game.platforms.find((platform) => platform.id === game.player.platformId)?.dog;
+    const drawPet = pet?.kind === 'zab' ? drawZab : drawDog;
+    // Both enlarged visitors stay above the instruction panel at 60% height.
     ctx.save();
     ctx.translate(WIDTH / 2, HEIGHT * 0.49);
     ctx.scale(4.5, 4.5);
-    drawDog(ctx, { x: 0, direction: 1 }, 0, reducedMotion ? 0 : time, true, false);
+    drawPet(ctx, { x: 0, direction: 1 }, 0, reducedMotion ? 0 : time, true, false);
     ctx.restore();
   }
   for (const heart of effects?.hearts ?? []) {
@@ -1365,15 +1517,18 @@ export function drawGame(ctx, game, options = {}) {
 
   for (const platform of game.platforms) {
     if (platform.dog && screenY(platform.y) >= -50 && screenY(platform.y) <= HEIGHT + 50) {
-      drawDog(ctx, platform.dog, screenY(platform.y), visualTime,
+      const drawPet = platform.dog.kind === 'zab' ? drawZab : drawDog;
+      drawPet(ctx, platform.dog, screenY(platform.y), visualTime,
         game.player.state === 'petting' && game.player.platformId === platform.id);
     }
   }
   const player = game.player;
   const bunnyY = screenY(player.y);
+  const launchStretch = reducedMotion ? 0 : getLaunchStretch(game);
   const landingAge = game.lastLanding ? game.time - game.lastLanding.time : Infinity;
   if (!reducedMotion) drawLandingEffect(ctx, game.lastLanding, landingAge, screenY, theme);
-  if (player.vy > 760 && !reducedMotion) {
+  drawPetBoost(ctx, game, bunnyY, reducedMotion, launchStretch);
+  if (player.vy > 760 && player.state !== 'pet-boost' && !reducedMotion) {
     for (let i = 0; i < 8; i += 1) {
       const sway = Math.sin(visualTime * 10 + i * 4);
       ctx.globalAlpha = (1 - i / 8) * 0.7;
@@ -1388,10 +1543,14 @@ export function drawGame(ctx, game, options = {}) {
   drawBunny(ctx, player.x, bunnyY, {
     ...getEatingExpression(game, theme),
     theme,
-    pose: game.phase === 'ready' || player.state === 'petting' ? 'idle' : player.state === 'trapped' || player.state === 'sliding' ? player.state : player.vy > 0 ? 'jump' : 'fall',
+    pose: game.phase === 'ready' || player.state === 'petting'
+      || (player.state === 'pet-boost' && game.petBoost?.elapsed < game.petBoost?.chargeDuration)
+      ? 'idle' : player.state === 'trapped' || player.state === 'sliding' ? player.state
+        : player.state === 'pet-boost' || player.vy > 0 ? 'jump' : 'fall',
     facing: player.vx < -8 ? -1 : 1,
-    time: visualTime,
+    time: player.state === 'pet-boost' && game.petBoost ? game.petBoost.elapsed : visualTime,
     impact: landingAge >= 0 && landingAge < 0.18 ? (1 - landingAge / 0.18) ** 2 : 0,
+    launchStretch,
     vx: player.vx,
     vy: player.vy,
     reducedMotion,

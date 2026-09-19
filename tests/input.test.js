@@ -9,7 +9,7 @@ import * as core from '../src/game.js';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
   .replace(/^import .+;\r?\n/gm, '');
 
-function application({ autoStart = true, storedSettings = null } = {}) {
+function application({ autoStart = true, storedSettings = null, search = '' } = {}) {
   class Element {
     constructor(isControl = false) {
       this.isControl = isControl;
@@ -70,6 +70,7 @@ function application({ autoStart = true, storedSettings = null } = {}) {
     querySelectorAll: (selector) => selector === '[data-theme-choice]' ? [...themeButtons.values()] : [],
   });
   const window = new Element();
+  window.location = { search };
   element('.intro').textContent = 'Shared desktop movement instructions';
   element('.field-guide').textContent = 'Shared desktop item instructions';
   const storage = new Map();
@@ -77,10 +78,12 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   const audioScenes = [];
   const musicChanges = [];
   const effectChanges = [];
+  const pettingKinds = [];
+  const boostStages = [];
   let pwaCallbacks;
   let updateApplications = 0;
   const context = vm.createContext({
-    ...core, Element, document, window,
+    ...core, Element, document, window, URLSearchParams,
     matchMedia: () => Object.assign(new Element(), { matches: false }),
     localStorage: { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
     crypto: { getRandomValues: (values) => { values[0] = 42; return values; } },
@@ -89,6 +92,8 @@ function application({ autoStart = true, storedSettings = null } = {}) {
       setEnabled(value) { effectChanges.push(value); }
       setScene(theme, phase) { audioScenes.push({ theme, phase }); }
       setMusicEnabled(value) { musicChanges.push(value); }
+      setPetting(kind) { pettingKinds.push(kind); }
+      setBoost(progress, duration) { boostStages.push({ progress, duration }); }
     },
     setupPwa: (callbacks) => {
       pwaCallbacks = callbacks;
@@ -101,7 +106,7 @@ function application({ autoStart = true, storedSettings = null } = {}) {
   const canvas = element('#game');
   const inspect = (expression) => vm.runInContext(expression, context);
   return {
-    document, window, element, canvas, inspect, themeButtons, audioScenes, musicChanges, effectChanges,
+    document, window, element, canvas, inspect, themeButtons, audioScenes, musicChanges, effectChanges, pettingKinds, boostStages,
     announceUpdate: () => pwaCallbacks.onUpdateReady(),
     get updateApplications() { return updateApplications; },
     savedSettings: () => JSON.parse(storage.get('ponppu.settings.v1')),
@@ -463,6 +468,92 @@ test('a waiting update remains announced through a round and can only be applied
 });
 
 
+test('test encounter mode is explicit and survives restart and return to menu', () => {
+  for (const [search, mode] of [['', 'release'], ['?creature=test', 'test']]) {
+    const app = application({ search });
+    assert.equal(app.game.creatureMode, mode);
+    assert.equal(app.element('#creature-test-notice').hidden, mode !== 'test');
+    assert.equal(app.element('.creature-interval').textContent, mode === 'test' ? '200–300' : '2 000–3 000');
+    app.element('#restart').dispatch('click');
+    assert.equal(app.game.creatureMode, mode);
+    app.element('#back-menu').dispatch('click');
+    assert.equal(app.game.creatureMode, mode);
+    app.element('#start').dispatch('click');
+    assert.equal(app.game.creatureMode, mode);
+  }
+});
+
+test('Zab stops on the final petting stroke; only the launch effect follows the boost and resumes after pause', () => {
+  const app = application({ search: '?creature=test' });
+  const platform = app.game.platforms[0];
+  platform.dog = { kind: 'zab', x: 180, direction: 1, petted: false };
+  Object.assign(app.game.player, { state: 'petting', platformId: platform.id });
+  app.game.events.push({ type: 'dog' });
+  app.inspect('processEvents(); refreshUi()');
+  assert.equal(app.pettingKinds.at(-1), 'zab');
+  assert.equal(app.element('#pet-title').textContent, 'Paijaa otusta');
+  assert.equal(app.boostStages.at(-1).progress, null, 'no launch effect during petting');
+  app.element('#pause').dispatch('click');
+  assert.equal(app.pettingKinds.at(-1), null);
+  app.element('#resume').dispatch('click');
+  assert.equal(app.pettingKinds.at(-1), 'zab');
+  app.window.dispatch('blur');
+  assert.equal(app.pettingKinds.at(-1), null);
+  app.element('#resume').dispatch('click');
+  app.document.hidden = true;
+  app.document.dispatch('visibilitychange');
+  assert.equal(app.pettingKinds.at(-1), null);
+  app.document.hidden = false;
+  app.element('#resume').dispatch('click');
+  assert.equal(app.pettingKinds.at(-1), 'zab');
+  app.pointer('pointerdown', 1, 100, 400);
+  const beforeFinalStrokes = app.pettingKinds.length;
+  for (let index = 0; index < 10; index++) app.pointer('pointermove', 1, index % 2 ? 100 : 210, 400);
+  assert.equal(app.game.player.state, 'pet-boost');
+  assert.equal(platform.dog.petted, true);
+  assert.ok(app.pettingKinds.slice(beforeFinalStrokes, -1).every((kind) => kind === 'zab'), 'the loop continues until the final stroke');
+  assert.equal(app.pettingKinds.at(-1), null, 'the final stroke stops Zab before the glow charges');
+  assert.equal(app.boostStages.at(-1).progress, null, 'the glow charges before the launch effect starts');
+  assert.equal(app.inspect('petEffects.hearts.length'), 10);
+  assert.equal(app.inspect('petGesture'), null, 'the final swipe is released when the boost takes control');
+  assert.equal(app.canvas.hasPointerCapture(1), false);
+  const departureY = app.game.player.y;
+  app.key('keydown', 'ArrowRight');
+  app.pointer('pointerdown', 2, 100, 480);
+  app.pointer('pointermove', 2, 210, 480);
+  assert.equal(app.axis(), 0);
+  assert.equal(app.inspect('joystick'), null);
+  app.inspect('stepGame(game, PHYSICS.petBoostChargeDuration / 2); processEvents(); refreshUi()');
+  assert.equal(app.pettingKinds.at(-1), null);
+  assert.equal(app.boostStages.at(-1).progress, null);
+  app.inspect('stepGame(game, PHYSICS.petBoostChargeDuration / 2); processEvents(); refreshUi()');
+  assert.equal(app.pettingKinds.at(-1), null);
+  assert.equal(app.boostStages.at(-1).progress, 0);
+  assert.equal(app.boostStages.at(-1).duration, core.PHYSICS.petBoostLaunchDuration);
+  app.inspect('stepGame(game, PHYSICS.petBoostLaunchDuration / 2); processEvents(); refreshUi()');
+  assert.equal(app.pettingKinds.at(-1), null);
+  assert.equal(app.boostStages.at(-1).progress, 0.5);
+  app.window.dispatch('blur');
+  assert.equal(app.pettingKinds.at(-1), null);
+  assert.equal(app.boostStages.at(-1).progress, null);
+  const pausedY = app.game.player.y;
+  app.inspect('stepGame(game, 10)');
+  assert.equal(app.game.player.y, pausedY);
+  app.element('#resume').dispatch('click');
+  assert.equal(app.pettingKinds.at(-1), null, 'resuming the boost cannot restart the completed petting loop');
+  assert.equal(app.boostStages.at(-1).progress, 0.5);
+  app.inspect('stepGame(game, PHYSICS.petBoostLaunchDuration / 2); processEvents(); refreshUi()');
+  assert.equal(app.game.player.state, 'air');
+  assert.equal(app.game.player.y - departureY, 300 * core.PHYSICS.pixelsPerMeter);
+  assert.equal(app.game.petBoost, null, 'finishing the boost removes the glow state');
+  assert.equal(app.axis(), 0, 'ride gestures never become movement after release');
+  assert.equal(app.pettingKinds.at(-1), null);
+  assert.equal(app.boostStages.at(-1).progress, null);
+  app.element('#back-menu').dispatch('click');
+  assert.equal(app.pettingKinds.at(-1), null);
+  assert.equal(app.boostStages.at(-1).progress, null);
+});
+
 test('dog strokes reject taps, jitter, extra fingers and long drags; ten reversals release', () => {
   const app = application();
   const platform = app.game.platforms[0];
@@ -471,6 +562,8 @@ test('dog strokes reject taps, jitter, extra fingers and long drags; ten reversa
   app.game.events.push({ type: 'dog' });
   app.inspect('processEvents(); refreshUi()');
   assert.equal(app.element('#dog-notice').hidden, false);
+  assert.equal(app.element('#pet-title').textContent, 'Paijaa otusta');
+  assert.equal(app.pettingKinds.at(-1), null, 'ordinary dogs do not play the Zab loop');
   app.pointer('pointerdown', 1, 100, 400);
   app.pointer('pointermove', 1, 110, 405);
   app.pointer('pointerdown', 2, 100, 400);

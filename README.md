@@ -14,6 +14,8 @@ npm start
 
 Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Portin voi vaihtaa komennolla `npm start -- --port 4174`. Kehityspalvelin jakaa vain pelin julkiset tiedostot ja kuuntelee oletuksena paikallista konetta.
 
+**Zab-testiversio:** avaa `http://127.0.0.1:4173/?creature=test`. Pieni vihreä hamsteri ilmestyy 200–300 nousumetrin välein, ja pelin alla näkyy testiversion merkintä. Ilman testiparametria väli on julkaisuun tarkoitettu 2 000–3 000 metriä. Valinta säilyy uusilla kierroksilla ja valikossa; sitä ei tallenneta selaimen asetuksiin. Molemmat käyttävät samaa paijausmekaniikkaa. Kehitysmuutos ei itsessään julkaise peliä.
+
 ## Pelaaminen
 
 - **Puhelin:** kosketa pelialueen alempaa puoliskoa ja vedä sormea sivulle. Joystick ilmestyy kosketuskohtaan. Pupu pomppii automaattisesti.
@@ -24,6 +26,7 @@ Avaa selaimessa `http://127.0.0.1:4173`. Lopeta palvelin painamalla Ctrl+C. Port
 - **Kakka:** liukastut tulosuunnassa; suurempi sivuttaisnopeus aiheuttaa pidemmän ja nopeamman liu'un. Esineet aktivoituvat laskeuduttaessa niiden päälle.
 - **Linnut:** kesällä lokkeja, syksyllä sorsia ja talvella harakoita. Sik-sak lentävään lintuun osuminen kimmottaa pupua viistosti ylöspäin ja poispäin lokista. Osuma ei katkaise välipalaketjua.
 - **Koira:** tepastelee tasolla 1 000–2 000 metrin välein. Viereen laskeutuminen pysäyttää pelin siksi aikaa, että silität koiraa 10 pyyhkäisyllä. Koira näkyy suurennettuna himmennetyn pelin edessä, ja jokainen pyyhkäisy synnyttää sydämiä. Hiirellä pidä painike pohjassa ja vedä edestakaisin.
+- **Zab-hamsteri:** pieni vihreä, tuntosarvellinen hamsteri käyttää samaa kymmenen pyyhkäisyn paijausta. Se ilmestyy omalla harvemmalla 2 000–3 000 metrin välillä (testitilassa 200–300 m). Jos molemmat osuvat samalle tasolle, otus tulee koiran sijaan ja seuraavan koiran väli lasketaan tästä kohtaamisesta. Videosta irrotettu ”zab zab zab” kuuluu vain paijauksen aikana ja loppuu heti kymmenenteen onnistuneeseen pyyhkäisyyn. Tauko, taustalle siirtyminen, valikko ja ääniefektien mykistys pysäyttävät toiston. Varsinaisen nousun aikana kuuluu lisäksi nouseva suhahdusääni, joka noudattaa ampaisun etenemistä ja taukoja. Musiikin mykistys ei mykistä hamsteria. Molempien otusten paijausotsikko on ”Paijaa otusta”. Kymmenennen onnistuneen hamsterin paijauksen jälkeen pupuun latautuu vihreä hehku 0,25 sekunnin ajan. Sitten pupu ampaisee täsmälleen 300 metriä lähtötasolta ylöspäin. Nousunopeus on 80 % aiemmasta 200 metrin / 0,5 sekunnin ampaisusta: nousun kesto on 0,9375 sekuntia. Hehku ja vihreä vana sammuvat ampaisun päättyessä. Ampaisu sivuuttaa ohjauksen ja esteosumat; tauko pysäyttää myös animaation. Pupu jatkaa tavallisella hypyllä turvalliselta uudelta tasolta.
 - **Tauko:** paina taukopainiketta tai Escapea. Taustalle siirtyminen keskeyttää kierroksen.
 
 Alareunaan putoaminen päättää kierroksen kolmisäveliseen, noin sekunnin mittaiseen ”di-dy-dyy”-ääniefektiin. Pisteet mittaavat edettyä matkaa. Tasojen leveys pienenee aina 10 % edellisestä leveydestä 250 metrin välein (100 %, 90 %, 81 %, …), vähintään 70 pikseliin. Kavennus määräytyy tason korkeudesta; jo luodut tasot eivät kutistu kesken hypyn.
@@ -52,6 +55,6 @@ GitHub Pages julkaisee `main`-haaraan viedyt muutokset automaattisesti. Katso [j
 
 **Vaihda `sw.js`-tiedoston `RELEASE`-arvo jokaisessa pelipaketin päivityksessä.** Päivitä myös sen `APP_FILES`-lista, jos peliin lisätään tarvittavia tiedostoja. Palvelutyöntekijä pitää dokumentin ja moduulit saman version välimuistissa, ja aktivoituu odottavasta tilasta vain hyväksytyn päivityksen yhteydessä.
 
-Tämä repository on julkinen. Lähdekoodiin, kuviin, dokumentteihin ja Git-historiaan ei saa lisätä salaisuuksia, henkilötietoja, konekohtaisia polkuja tai yksityistä aineistoa. Varmuuskopiot, lokit ja paikalliset asetukset pidetään repositoryn ulkopuolella. Grafiikka ja tehosteäänet tuotetaan pelin omalla koodilla. Taustamusiikkina käytetään projektiin toimitettuja MP3-kappaleita, jotka sisältyvät myös offline-pakettiin. Musiikki ei tarvitse ulkopuolisia palveluita.
+Tämä repository on julkinen. Lähdekoodiin, kuviin, dokumentteihin ja Git-historiaan ei saa lisätä salaisuuksia, henkilötietoja, konekohtaisia polkuja tai yksityistä aineistoa. Varmuuskopiot, lokit ja paikalliset asetukset pidetään repositoryn ulkopuolella. Grafiikka ja muut tehosteäänet tuotetaan pelin omalla koodilla; Zab-testin ääni on toimitetun videon äänileike ([lähdemerkintä](assets/audio/zab-petting-source.md)). Taustamusiikkina käytetään projektiin toimitettuja MP3-kappaleita, jotka sisältyvät myös offline-pakettiin. Musiikki ei tarvitse ulkopuolisia palveluita.
 
 Pelin sovittu ensimmäinen rajaus: [pelisuunnitelma](docs/game-design.md).

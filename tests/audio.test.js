@@ -11,6 +11,7 @@ const moduleUrl = 'https://example.test/game/src/audio.js';
 const summer = 'https://example.test/game/assets/audio/summer-platformer.mp3';
 const autumn = 'https://example.test/game/assets/audio/kalm-mjork.mp3';
 const winter = 'https://example.test/game/assets/audio/frozen-minor.mp3';
+const zab = 'https://example.test/game/assets/audio/zab-petting.mp3';
 
 function deferred() {
   let resolve;
@@ -20,13 +21,15 @@ function deferred() {
 }
 
 async function flush() {
-  for (let count = 0; count < 4; count++) await Promise.resolve();
+  for (let count = 0; count < 12; count++) await Promise.resolve();
 }
 
-function application({ enabled = true, musicEnabled = true, initialState = 'running', delayedPlay = false } = {}) {
+function application({ enabled = true, musicEnabled = true, initialState = 'running', delayedPlay = false,
+  delayedPettingFetch = false, delayedPettingDecode = false } = {}) {
   const errors = [];
   const contexts = [];
   const elements = [];
+  const fetches = [];
   const timers = new Map();
   let timerTime = 0;
   let nextTimer = 1;
@@ -132,15 +135,26 @@ function application({ enabled = true, musicEnabled = true, initialState = 'runn
     stop(time) { this.stops.push(time); }
   }
 
+  class BufferSource extends Node {
+    constructor() { super(); this.starts = []; this.stops = []; }
+    start(time = 0) { this.starts.push(time); }
+    stop(time = 0) { this.stops.push(time); }
+  }
+
   class Context extends Events {
     constructor() {
       super();
       this.state = initialState;
       this.currentTime = 0;
+      this.sampleRate = 24000;
       this.destination = new Node();
       this.gains = [];
       this.mediaSources = [];
       this.oscillators = [];
+      this.bufferSources = [];
+      this.buffers = [];
+      this.filters = [];
+      this.decodes = [];
       this.resumes = [];
       contexts.push(this);
     }
@@ -162,6 +176,31 @@ function application({ enabled = true, musicEnabled = true, initialState = 'runn
       this.oscillators.push(oscillator);
       return oscillator;
     }
+    createBufferSource() {
+      const source = new BufferSource();
+      this.bufferSources.push(source);
+      return source;
+    }
+    createBuffer(channels, length, sampleRate) {
+      const samples = Array.from({ length: channels }, () => new Float32Array(length));
+      const buffer = { duration: length / sampleRate, getChannelData: (channel) => samples[channel] };
+      this.buffers.push(buffer);
+      return buffer;
+    }
+    createBiquadFilter() {
+      const filter = new Node();
+      filter.frequency = new Parameter();
+      filter.Q = new Parameter();
+      this.filters.push(filter);
+      return filter;
+    }
+    decodeAudioData(bytes) {
+      const pending = deferred();
+      const buffer = { duration: 2.5 };
+      this.decodes.push({ ...pending, bytes, buffer });
+      if (!delayedPettingDecode) pending.resolve(buffer);
+      return pending.promise;
+    }
     changeState(state) { this.state = state; this.dispatch('statechange'); }
     resume() {
       const pending = deferred();
@@ -176,6 +215,13 @@ function application({ enabled = true, musicEnabled = true, initialState = 'runn
 
   const sandbox = vm.createContext({
     AudioContext: Context, Audio: Media, URL, moduleUrl,
+    fetch(url) {
+      const pending = deferred();
+      const response = { ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(16) };
+      fetches.push({ ...pending, url, response });
+      if (!delayedPettingFetch) pending.resolve(response);
+      return pending.promise;
+    },
     console: { error: (...args) => errors.push(args) },
     setTimeout(callback, delay) {
       const id = nextTimer++;
@@ -188,7 +234,7 @@ function application({ enabled = true, musicEnabled = true, initialState = 'runn
   const GameAudio = vm.runInContext('GameAudio', sandbox);
   const audio = new GameAudio(enabled, musicEnabled);
   return {
-    audio, contexts, elements, errors, advance,
+    audio, contexts, elements, errors, advance, fetches,
     get pendingTimers() { return timers.size; },
     get context() { return contexts[0]; },
     get media() { return elements[0]; },
@@ -711,4 +757,287 @@ test('delayed new-track playback waits silently, and stale play results cannot f
   app.advance(.5);
   assert.equal(app.media.paused, true);
   assert.equal(app.audio.musicGain.gain.value, 0);
+});
+
+test('Zab petting loops one decoded sample without restarting on frame updates or creating another media player', async () => {
+  const app = application();
+  await app.start('meadow', 'playing');
+  app.audio.setPetting('dog');
+  app.audio.setPetting(null);
+  assert.equal(app.fetches.length, 0);
+  app.audio.setPetting('zab');
+  for (let frame = 0; frame < 20; frame++) app.audio.setPetting('zab');
+  await flush();
+  const source = app.context.bufferSources[0];
+  assert.equal(app.fetches.length, 1);
+  assert.equal(app.fetches[0].url, zab);
+  assert.equal(app.context.decodes.length, 1);
+  assert.equal(source.buffer, app.context.decodes[0].buffer);
+  assert.equal(source.loop, true);
+  assert.equal(source.connections[0], app.audio.effectsGain);
+  assert.deepEqual(source.starts, [0]);
+  for (let frame = 0; frame < 20; frame++) {
+    app.audio.setScene('meadow', 'playing');
+    app.audio.setPetting('zab');
+  }
+  assert.equal(app.context.bufferSources.length, 1);
+  assert.equal(app.elements.length, 1, 'automatic petting uses the gesture-unlocked context');
+  app.audio.setPetting(null);
+  assert.deepEqual(source.stops, [0]);
+  assert.equal(source.disconnected, true);
+  app.audio.setPetting('zab');
+  assert.equal(app.context.bufferSources.length, 2);
+  assert.equal(app.context.bufferSources[1].buffer, source.buffer);
+  assert.equal(app.fetches.length, 1, 'later encounters reuse the decoded sample');
+});
+
+test('Zab follows the effects setting independently of background music', async () => {
+  const app = application({ musicEnabled: false });
+  await app.start('winter', 'playing');
+  app.audio.setPetting('zab');
+  await flush();
+  const first = app.context.bufferSources[0];
+  assert.equal(first.stops.length, 0);
+  app.audio.setMusicEnabled(true);
+  app.audio.setMusicEnabled(false);
+  assert.equal(first.stops.length, 0);
+  assert.equal(app.context.bufferSources.length, 1);
+  app.audio.setEnabled(false);
+  assert.equal(first.stops.length, 1);
+  assert.equal(first.disconnected, true);
+  app.audio.setPetting('zab');
+  assert.equal(app.context.bufferSources.length, 1);
+  app.audio.setEnabled(true);
+  assert.equal(app.context.bufferSources.length, 2);
+  assert.equal(app.media.paused, true);
+  assert.equal(app.fetches.length, 1);
+});
+
+const stopPettingTransitions = [
+  ['release', (audio) => audio.setPetting(null)],
+  ['dog', (audio) => audio.setPetting('dog')],
+  ['pause or focus loss', (audio) => audio.setScene('meadow', 'paused')],
+  ['menu', (audio) => audio.setScene('meadow', 'ready')],
+  ['game over', (audio) => audio.setScene('meadow', 'over')],
+  ['effects mute', (audio) => audio.setEnabled(false)],
+];
+
+for (const [label, transition] of stopPettingTransitions) {
+  test(`Zab stops immediately after ${label}, including when fetch or decode finishes later`, async () => {
+    for (const stage of ['playing', 'fetch', 'decode']) {
+      const app = application({ delayedPettingFetch: stage === 'fetch', delayedPettingDecode: stage === 'decode' });
+      await app.start('meadow', 'playing');
+      app.audio.setPetting('zab');
+      await flush();
+      transition(app.audio);
+      if (stage === 'fetch') app.fetches[0].resolve(app.fetches[0].response);
+      if (stage === 'decode') app.context.decodes[0].resolve(app.context.decodes[0].buffer);
+      await flush();
+      if (stage === 'playing') {
+        const source = app.context.bufferSources[0];
+        assert.equal(source.stops.length, 1);
+        assert.equal(source.disconnected, true);
+      } else assert.equal(app.context.bufferSources.length, 0, stage);
+      assert.equal(app.audio.pettingSource, null);
+      assert.equal(app.fetches.length, 1);
+    }
+  });
+}
+
+test('unfinished Zab petting resumes after pause and audio interruption with only one active loop', async () => {
+  const app = application();
+  await app.start('meadow', 'playing');
+  app.audio.setPetting('zab');
+  await flush();
+  app.audio.setScene('meadow', 'paused');
+  app.audio.setScene('meadow', 'playing');
+  assert.equal(app.context.bufferSources.length, 2);
+  for (const state of ['suspended', 'interrupted']) {
+    const previous = app.context.bufferSources.at(-1);
+    app.context.changeState(state);
+    assert.equal(previous.stops.length, 1);
+    assert.equal(app.audio.pettingSource, null);
+    app.audio.unlock();
+    assert.equal(app.audio.pettingSource, null, 'resume must finish before starting a buffer');
+    app.context.finishResume();
+    await flush();
+    assert.notEqual(app.audio.pettingSource, previous);
+    assert.equal(app.audio.pettingSource.stops.length, 0);
+  }
+  assert.equal(app.context.bufferSources.length, 4);
+  assert.equal(app.fetches.length, 1);
+});
+
+test('an initial context resume or a late load cannot revive cancelled petting', async () => {
+  const app = application({ initialState: 'suspended' });
+  await app.start('meadow', 'playing');
+  app.audio.setPetting('zab');
+  assert.equal(app.fetches.length, 0);
+  app.audio.setPetting(null);
+  app.context.finishResume();
+  await flush();
+  assert.equal(app.fetches.length, 0);
+  assert.equal(app.context.bufferSources.length, 0);
+  app.audio.setPetting('zab');
+  await flush();
+  assert.equal(app.context.bufferSources.length, 1, 'a later encounter uses the already unlocked context');
+});
+
+test('petting fetch, HTTP and decode failures report once without retrying on subsequent frames or gestures', async () => {
+  for (const failure of ['network', 'http', 'decode']) {
+    const app = application({ delayedPettingFetch: true, delayedPettingDecode: true });
+    await app.start('meadow', 'playing');
+    app.audio.setPetting('zab');
+    if (failure === 'network') app.fetches[0].reject(new Error('Network unavailable'));
+    else {
+      app.fetches[0].resolve(failure === 'http' ? { ok: false, status: 404 } : app.fetches[0].response);
+      await flush();
+      if (failure === 'decode') app.context.decodes[0].reject(new Error('Invalid audio'));
+    }
+    await flush();
+    for (let frame = 0; frame < 20; frame++) {
+      app.audio.setScene('meadow', 'playing');
+      app.audio.setPetting('zab');
+      app.audio.unlock();
+    }
+    assert.equal(app.context.bufferSources.length, 0, failure);
+    assert.equal(app.fetches.length, 1, failure);
+    assert.equal(app.errors.length, 1, failure);
+    assert.equal(app.media.paused, false, 'a failed effect leaves the music running');
+  }
+});
+
+test('the boost layers one rising swoosh over uninterrupted Zab without restarting on frame updates', async () => {
+  const app = application({ musicEnabled: false });
+  await app.start('meadow', 'playing');
+  app.audio.setPetting('zab');
+  await flush();
+  const petting = app.audio.pettingSource;
+  app.audio.setBoost(null);
+  assert.equal(app.context.oscillators.length, 0, 'charging has no launch sound');
+  const start = app.context.currentTime;
+  app.audio.setBoost(0, .9375);
+  const tone = app.context.oscillators[0];
+  const noise = app.context.bufferSources[1];
+  const filter = noise.connections[0];
+  const gain = filter.connections[0];
+  assert.equal(tone.type, 'triangle');
+  assert.equal(filter.type, 'bandpass');
+  assert.equal(noise.loop, true);
+  assert.equal(gain.connections[0], app.audio.effectsGain);
+  assert.deepEqual(tone.frequency.events, [['set', 180, start], ['exponential', 1800, start + .9375]]);
+  assert.deepEqual(filter.frequency.events, [['set', 550, start], ['exponential', 3300, start + .9375]]);
+  assert.deepEqual(tone.stops, [start + .9375]);
+  assert.deepEqual(noise.stops, tone.stops);
+  for (let frame = 0; frame < 30; frame++) {
+    app.audio.setScene('meadow', 'playing');
+    app.audio.setPetting('zab');
+    app.audio.setBoost(frame / 30, .9375);
+    app.audio.unlock();
+  }
+  assert.equal(app.context.oscillators.length, 1);
+  assert.equal(app.context.bufferSources.length, 2);
+  assert.equal(app.audio.pettingSource, petting);
+  assert.deepEqual(petting.stops, []);
+  assert.equal(app.fetches.length, 1, 'the swoosh is synthesized without another asset request');
+  app.audio.setBoost(null);
+  app.audio.setPetting(null);
+  assert.equal(tone.stops.length, 2, 'the endpoint stops an unfinished audio envelope immediately');
+  assert.equal(noise.stops.length, 2);
+  assert.equal(gain.disconnected, true);
+  assert.equal(petting.disconnected, true);
+});
+
+test('a naturally ended boost stays finished until the next launch and releases all audio nodes', async () => {
+  const app = application();
+  await app.start('meadow', 'playing');
+  app.audio.setBoost(.2, 1.2);
+  const voice = app.audio.boostVoice;
+  const tone = app.context.oscillators[0];
+  tone.onended();
+  assert.ok(voice.nodes.every((node) => node.disconnected));
+  for (const progress of [.6, .8, .999]) {
+    app.audio.setBoost(progress, 1.2);
+    app.audio.setScene('meadow', 'playing');
+    app.audio.unlock();
+  }
+  assert.equal(app.context.oscillators.length, 1, 'an audio clock running ahead cannot repeat the launch');
+  app.audio.setBoost(1, 1.2);
+  app.audio.setBoost(null);
+  app.audio.setBoost(0, 1.2);
+  assert.equal(app.context.oscillators.length, 2);
+  assert.equal(app.context.buffers.length, 1, 'later launches reuse their small noise buffer');
+  tone.onended();
+  assert.equal(app.audio.boostVoice.ended, false, 'an old completion cannot close the current voice');
+});
+
+test('boost pause, effect mute and audio interruptions resume only the remaining sweep', async () => {
+  for (const action of ['pause', 'mute', 'suspended', 'interrupted']) {
+    const app = application();
+    await app.start('winter', 'playing');
+    app.audio.setBoost(0, 1.2);
+    app.audio.setBoost(.4, 1.2);
+    const first = app.audio.boostVoice;
+    if (action === 'pause') app.audio.setScene('winter', 'paused');
+    else if (action === 'mute') app.audio.setEnabled(false);
+    else app.context.changeState(action);
+    assert.equal(app.audio.boostVoice, null, action);
+    assert.ok(first.sources.every((source) => source.stops.length === 2), action);
+    assert.ok(first.nodes.every((node) => node.disconnected), action);
+    app.audio.setBoost(.6, 1.2);
+    assert.equal(app.context.oscillators.length, 1, action);
+    if (action === 'pause') app.audio.setScene('winter', 'playing');
+    else if (action === 'mute') app.audio.setEnabled(true);
+    else {
+      app.audio.unlock();
+      assert.equal(app.context.oscillators.length, 1, 'the effect waits for context resume');
+      app.context.finishResume();
+      await flush();
+    }
+    const resumed = app.context.oscillators[1];
+    const now = app.context.currentTime;
+    assert.equal(resumed.frequency.events[0][1], 180 * 10 ** .6, action);
+    assert.deepEqual(resumed.stops, [now + 1.2 * .4], action);
+    app.audio.setBoost(.7, 1.2);
+    app.audio.unlock();
+    assert.equal(app.context.oscillators.length, 2, action);
+  }
+});
+
+test('boost belongs to effects and ignores the separate music preference', async () => {
+  const app = application({ musicEnabled: false });
+  await app.start('meadow', 'playing');
+  app.audio.setBoost(.2, 1);
+  const voice = app.audio.boostVoice;
+  app.audio.setMusicEnabled(true);
+  app.audio.setMusicEnabled(false);
+  assert.equal(app.audio.boostVoice, voice);
+  assert.equal(app.context.oscillators.length, 1);
+  assert.equal(voice.ended, false);
+  app.audio.setEnabled(false);
+  app.audio.setBoost(1, 1);
+  app.audio.setEnabled(true);
+  assert.equal(app.audio.boostVoice, null, 'unmuting after the endpoint cannot replay the launch');
+});
+
+test('menu, game over and a cancelled suspended launch cannot revive boost audio later', async () => {
+  for (const phase of ['ready', 'over']) {
+    const app = application();
+    await app.start('meadow', 'playing');
+    app.audio.setBoost(.3, 1);
+    const voice = app.audio.boostVoice;
+    app.audio.setScene('meadow', phase);
+    app.audio.setBoost(null);
+    assert.ok(voice.nodes.every((node) => node.disconnected));
+    app.audio.unlock();
+    app.audio.setScene('meadow', 'playing');
+    assert.equal(app.context.oscillators.length, 1);
+  }
+  const app = application({ initialState: 'suspended' });
+  await app.start('meadow', 'playing');
+  app.audio.setBoost(.2, 1);
+  app.audio.setBoost(null);
+  app.context.finishResume();
+  await flush();
+  assert.equal(app.context.oscillators.length, 0);
 });
